@@ -32,13 +32,17 @@
 #define NONE_EFFECT 0
 #define NO_DELAY_EFFECT 1
 #define NORMAL_EFFECT 2
-#define RGB_EFFECT 2
+#define RANDOM_ON_FORCE_EFFECT 3
+
+#define STATIC_COLOR 0
+#define DYNAMIC_RGB_COLOR 1
+#define COLOR_AVAILABLE 48
 
 //formattazione
 #define ADDESS_DIGIT_SIZE 4
 
 
-const uint8_t Colors [ColorAvailable][3] PROGMEM =  {
+const static uint8_t Colors [ColorAvailable][3] PROGMEM =  {
     
 //   R   G    B
     255, 0  , 0  ,
@@ -90,6 +94,21 @@ const uint8_t Colors [ColorAvailable][3] PROGMEM =  {
     255, 0  , 64,
     255, 0  , 32
 };
+
+void static inline LoadColorFromFlash(register uint8_t index, register uint8_t *pRED, register uint8_t *pGREEN, register uint8_t *pBLUE) {
+    
+    //index = index % COLOR_AVAILABLE;
+    
+    *pRED   = pgm_read_byte(&(Colors[index][0]));
+    *pGREEN = pgm_read_byte(&(Colors[index][1]));
+    *pBLUE  = pgm_read_byte(&(Colors[index][2]));
+}
+
+/*
+void LoadStringFromFlash(uint16_t Position, const char* array[]) {
+  strcpy_P(Stringsbuffer, (char*)pgm_read_word(&(array[Position])));
+}
+*/
 
 
 typedef struct Nota
@@ -146,8 +165,17 @@ class Piano
 
         WS2812_interface *LED_Interface;
         uint8_t LED_MAX_Brightness = 200;
-        uint8_t Trasnspose = 0;//+-127
+        int8_t Trasnspose = 0;//+-127
+
         uint8_t Piano_LED_Animation = NORMAL_EFFECT;
+        uint8_t Piano_LED_ColorIndex = 0;
+        uint8_t Piano_LED_ColorMode = 0; 
+
+
+        uint8_t redColorValue;
+        uint8_t greenColorValue;
+        uint8_t blueColorValue;
+        uint8_t HUE_value;
         
 
         Nota PianoNote[TOTAL_NOTE];
@@ -176,8 +204,20 @@ class Piano
             LED_Interface->SetLedColor(LED_index, 0x00, 0x00, 0x00);
             PianoLED[LED_index].LedFlags &= 0xFE;
         }
+        inline void clear() {
+            LED_Interface->clear();  
+        }
+
+        void inline UpdateLED_Color() {
+            for(register uint8_t LED_index = 0; LED_index < TOTAL_LED; LED_index++) {
+                if(isOn(LED_index)) {
+                    LED_Interface->SetLedColor(LED_index, redColorValue, greenColorValue, blueColorValue);
+                }
+            }
+        }
 
         float NoteToLed_Conversion(uint8_t note);
+        
 
     public:
 
@@ -189,6 +229,63 @@ class Piano
         void UpDateLED(const register uint8_t LED_index);
         void refresh();
         void Print();
+
+
+        void nextColor() {
+            if(Piano_LED_ColorMode != STATIC_COLOR)
+                Piano_LED_ColorMode = STATIC_COLOR;
+
+            Piano_LED_ColorIndex = (Piano_LED_ColorIndex + 1) % COLOR_AVAILABLE; 
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);     
+            UpdateLED_Color();
+        }
+
+        void previousColor() {
+            if(Piano_LED_ColorMode != STATIC_COLOR)
+                Piano_LED_ColorMode = STATIC_COLOR;
+
+            if(Piano_LED_ColorIndex == 0) {
+                Piano_LED_ColorIndex = COLOR_AVAILABLE - 1;
+            } else {
+                Piano_LED_ColorIndex--;
+            }
+            
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
+            UpdateLED_Color();
+        }
+
+        void SetColor(uint8_t index) {
+            Piano_LED_ColorIndex = (index % COLOR_AVAILABLE);           
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
+            UpdateLED_Color();
+        }
+
+        void RGB_Color() {
+            if(Piano_LED_ColorMode != DYNAMIC_RGB_COLOR)
+                Piano_LED_ColorMode = DYNAMIC_RGB_COLOR;
+        }
+
+        void setEffect(uint8_t val) {
+            this->Piano_LED_Animation = val;
+        }
+
+        void IncrementTranspose() {
+            if(this->Trasnspose < 12)
+                this->Trasnspose++;
+
+            //shift note
+        }
+
+        void DecrementTranspose() {
+            if(this->Trasnspose > -12)
+                this->Trasnspose--;
+            //shift note
+        }
+
+        void ResetTranspose() {
+            this->Trasnspose = 0;
+            //shift note
+        }
 };
 
 //Note Piano::PianoNote[TOTAL_NOTE]

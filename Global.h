@@ -36,6 +36,7 @@
 #define MIN_Brightness 0
 
 #define MAX3421E_InterruptPin 2
+#define SERIAL_BUFFER_SIZE 32
 
 //================== MIDI command ==================//
 #define Command_NoteOff         0x80
@@ -92,6 +93,8 @@ void MIDI_NoteRelased(uint8_t NoteNumber);
 void synchronize();
 void handle_Midi_status(uint8_t data);
 void dumpData(uint8_t* buf);
+
+inline void Serial_Command(register uint8_t data);
 
 
 #endif

@@ -19,7 +19,7 @@ class ArrayNode
         Type data;
 };
 
-template<typename Type>
+template<typename Type, uint8_t N>
 class ArrayList
 {
     private:
@@ -32,9 +32,12 @@ class ArrayList
 
         bool add(Type element);
         bool remove(int index);
+        bool push(Type data);
+        Type pop();
+        Type front(); 
         Type get(int index);
-        void print();
 
+        void print();
         int lenght() const {
             return this->size;
         }

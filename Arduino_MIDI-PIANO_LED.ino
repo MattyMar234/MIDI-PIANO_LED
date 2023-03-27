@@ -4,6 +4,9 @@
 #include "Piano.h"
 #include "HardwareTimer.h"
 #include "SystemControls.h"
+#include "BlueTooth.h"
+
+#include <SoftwareSerial.h>
 
 volatile uint8_t LED_Update_Index = (int)TOTAL_LED - 1;
 volatile uint8_t PerscalerCounter = 0;
@@ -16,6 +19,9 @@ USB Usb;
 USBH_MIDI  Midi(&Usb);
 
 
+
+Bluetooth<HardWareSerial1> BlueTooth = Bluetooth<HardWareSerial1>();
+ArrayList<uint8_t, 40> SerialBuffer = ArrayList<uint8_t, 40>();
 
 ISR(TIMER1_COMPA_vect) 
 {
@@ -30,23 +36,29 @@ ISR(TIMER1_COMPA_vect)
     }
   }
   
-
   //375HZ
   if(PerscalerCounter == 0) {
     SystemControls::USB_POLLING_FLAG = true; 
   }
+}
 
-  
+void BlueTooth__Interrupt__RX() {
+  SerialBuffer.push(BlueTooth.read());
 }
 
 
 void setup() 
 {
-  Serial.begin(115200);
-  MidiPiano.Print();
   SystemControls::Enable_USB_SerialDebug = true;
   SystemControls::Enable_MIDI_NOTE_SerialDebug = true;
-  
+
+  Serial.begin(115200);
+
+  BlueTooth.begin(9600);
+  BlueTooth.attachInterrupt_RX(BlueTooth__Interrupt__RX);
+
+  MidiPiano.Print();
+
   /*==================== INIZIALIZZAZIONE USB-HOST ====================*/
   bool HostStatus = false;
   
@@ -68,7 +80,6 @@ void setup()
 
   /*==================== INIZIALIZZAZIONE TIMER ====================*/
   Hardware_TimerCounter1::setAsTimer(LED_REFRESH_RATE*TOTAL_LED, INTERRUPT_ON_COMPA); //4.5KHz
-  //
 }
 
 
@@ -77,6 +88,7 @@ void loop()
 {
   register uint16_t USB_State;
   
+  // ==================== [<LED>] ==================== //
   if(SystemControls::USB_UPDATE_FLAG) {
     SystemControls::USB_UPDATE_FLAG = false;
     MidiPiano.UpDateLED(LED_Update_Index);
@@ -86,8 +98,16 @@ void loop()
     SystemControls::USB_REFRESH_FLAG = false; 
     MidiPiano.refresh();
   }
-  
 
+  // ==================== [Serial Data] ==================== //
+  if(SerialBuffer.lenght() != 0) {
+    Serial_Command(SerialBuffer.front());
+  }
+  else if(Serial.available()) {
+    Serial_Command(Serial.read());
+  }
+  
+  // ==================== [<USB>] ==================== //
   if(SystemControls::USB_POLLING_FLAG) { //SystemControls::USB_POLLING_FLAG
     SystemControls::USB_POLLING_FLAG = false;
     
@@ -172,8 +192,6 @@ void loop()
          if(SystemControls::Enable_USB_SerialDebug)
           DEBUG_PORT.println(F("UNKNOW STATE\n"));
       }
-
-      
     }
 
     /* ==================== [MIDI reading] ==================== */
@@ -181,6 +199,62 @@ void loop()
         MIDI_Poll(); 
     }
   }
+}
+
+inline void Serial_Command(register uint8_t data) {
+    static char buffer[SERIAL_BUFFER_SIZE];
+    static uint8_t bufferIndex = 0;
+
+    //se diverso dal comado di conferma, accodo i dati
+    if(data >= 32 && data <= 126) {
+     if(bufferIndex < SERIAL_BUFFER_SIZE) {
+        buffer[bufferIndex++] = (char)data;
+      }
+    }
+    else if(data == '\n' || data == '\r') {
+      String str;
+
+      for(uint8_t i = 0; i < bufferIndex; i++) {
+        str += buffer[i];
+      }
+
+      if(str == F("/nextColor")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("Ok incrementColor"));
+        MidiPiano.nextColor();
+      }
+      else if(str == F("/previusColor")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("Ok decrementColor"));
+        MidiPiano.previousColor();
+      }
+      else if(str == F("/changing_RGBcolor")) {
+        MidiPiano.RGB_Color();
+      }
+      else if(str == F("/resetTranspose")) {
+        MidiPiano.ResetTranspose();
+      }
+      else if(str == F("/incrementTranspose")) {
+        MidiPiano.IncrementTranspose();
+      }
+      else if(str == F("/decrementTranspose")) {
+        MidiPiano.DecrementTranspose();
+      }
+      else if(str == F("/noneEffect")) {
+        MidiPiano.setEffect(NONE_EFFECT);
+      }
+      else if(str == F("/noDelayEffect")) {
+        MidiPiano.setEffect(NO_DELAY_EFFECT);
+      }
+      else if(str == F("/dissolvenzeEffect")) {
+        MidiPiano.setEffect(NORMAL_EFFECT);
+      }
+      else if(str == F("/randomOnForceEffect")) {
+        MidiPiano.setEffect(RANDOM_ON_FORCE_EFFECT);
+      }
+      bufferIndex = 0;
+    }
+    
 }
 
 

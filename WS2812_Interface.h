@@ -40,6 +40,7 @@ class WS2812_interface
 
         inline void clear() {
             pixels.clear();
+            pixels.show();
         }
 
         inline void SetLedColor(uint8_t register number, uint8_t register r, uint8_t register g, uint8_t register b) {

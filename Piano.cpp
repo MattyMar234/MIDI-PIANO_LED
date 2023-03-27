@@ -10,8 +10,8 @@ Piano::Piano(uint8_t pin)
 {
     LED_Interface = new WS2812_interface();
     LED_Interface->init(TOTAL_NOTE, pin, this->LED_MAX_Brightness);
-    //WS2812_interface::init(TOTAL_LED, pin);
 
+    SetColor(0);
     
 
     
@@ -113,8 +113,12 @@ void Piano::UpDateLED(const register uint8_t LED_index)
         }
         //Posso accendere il LED ?
         else if(PianoLED[LED_index].check_turnOn()) {
-            turnOn(LED_index, 0xFF, 0x00, 0x00);
+            turnOn(LED_index, redColorValue, greenColorValue, blueColorValue);
         }
+        break;
+      }
+      case RANDOM_ON_FORCE_EFFECT: {
+
         break;
       }
     } 
