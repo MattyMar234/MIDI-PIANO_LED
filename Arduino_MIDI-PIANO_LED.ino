@@ -10,6 +10,7 @@
 
 volatile uint8_t LED_Update_Index = (int)TOTAL_LED - 1;
 volatile uint8_t PerscalerCounter = 0;
+volatile uint8_t HueUpdateCounter = 0;
 
 
 ISR(TIMER1_COMPA_vect);
@@ -35,11 +36,23 @@ ISR(TIMER1_COMPA_vect)
       SystemControls::USB_REFRESH_FLAG = true; 
     }
   }
+
+  if(PerscalerCounter % 7 == 0) {
+    MidiPiano.UpdateHue();
+  }
   
-  //375HZ
+  //450HZ
   if(PerscalerCounter == 0) {
     SystemControls::USB_POLLING_FLAG = true; 
+    HueUpdateCounter++;
+
+    
   }
+}
+
+
+ISR(TIMER2_COMPA_vect) {
+
 }
 
 void BlueTooth__Interrupt__RX() {
@@ -52,6 +65,8 @@ void setup()
   SystemControls::Enable_USB_SerialDebug = true;
   SystemControls::Enable_MIDI_NOTE_SerialDebug = true;
 
+  randomSeed(analogRead(0));
+
   Serial.begin(115200);
 
   BlueTooth.begin(9600);
@@ -61,6 +76,7 @@ void setup()
 
   /*==================== INIZIALIZZAZIONE USB-HOST ====================*/
   bool HostStatus = false;
+  
   
   do {
     //if(Controls.SerialDebug) 
@@ -80,6 +96,8 @@ void setup()
 
   /*==================== INIZIALIZZAZIONE TIMER ====================*/
   Hardware_TimerCounter1::setAsTimer(LED_REFRESH_RATE*TOTAL_LED, INTERRUPT_ON_COMPA); //4.5KHz
+
+  MidiPiano.Forceclear();
 }
 
 
@@ -204,6 +222,7 @@ void loop()
 inline void Serial_Command(register uint8_t data) {
     static char buffer[SERIAL_BUFFER_SIZE];
     static uint8_t bufferIndex = 0;
+    static uint8_t args = 0;
 
     //se diverso dal comado di conferma, accodo i dati
     if(data >= 32 && data <= 126) {
@@ -218,38 +237,62 @@ inline void Serial_Command(register uint8_t data) {
         str += buffer[i];
       }
 
+      // =================== [Color] ===================// 
       if(str == F("/nextColor")) {
         if(SystemControls::Enable_USB_SerialDebug)
-          DEBUG_PORT.println(F("Ok incrementColor"));
+          DEBUG_PORT.println(F("> Increment Color"));
         MidiPiano.nextColor();
       }
       else if(str == F("/previusColor")) {
         if(SystemControls::Enable_USB_SerialDebug)
-          DEBUG_PORT.println(F("Ok decrementColor"));
+          DEBUG_PORT.println(F("> Decrement Color"));
         MidiPiano.previousColor();
       }
-      else if(str == F("/changing_RGBcolor")) {
+      else if(str == F("/SetColor")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Set Color: "));
+        MidiPiano.previousColor();
+      }
+      else if(str == F("/setRGBcolor")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Set RGB Color"));
         MidiPiano.RGB_Color();
       }
+      // =================== [Transpose] ===================//
       else if(str == F("/resetTranspose")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Reset Transpose"));
         MidiPiano.ResetTranspose();
       }
       else if(str == F("/incrementTranspose")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Increment Transpose"));
         MidiPiano.IncrementTranspose();
       }
       else if(str == F("/decrementTranspose")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Decrement Transpose"));
         MidiPiano.DecrementTranspose();
       }
+      // =================== [Effect] ===================//
       else if(str == F("/noneEffect")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Turn Off LED"));
         MidiPiano.setEffect(NONE_EFFECT);
       }
       else if(str == F("/noDelayEffect")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Set NO_DELAY_EFFECT"));
         MidiPiano.setEffect(NO_DELAY_EFFECT);
       }
       else if(str == F("/dissolvenzeEffect")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> Set NORMAL_EFFECT"));
         MidiPiano.setEffect(NORMAL_EFFECT);
       }
       else if(str == F("/randomOnForceEffect")) {
+        if(SystemControls::Enable_USB_SerialDebug)
+          DEBUG_PORT.println(F("> RANDOM_ON_FORCE_EFFECT"));
         MidiPiano.setEffect(RANDOM_ON_FORCE_EFFECT);
       }
       bufferIndex = 0;

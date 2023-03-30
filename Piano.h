@@ -169,13 +169,13 @@ class Piano
 
         uint8_t Piano_LED_Animation = NORMAL_EFFECT;
         uint8_t Piano_LED_ColorIndex = 0;
-        uint8_t Piano_LED_ColorMode = 0; 
+        uint8_t Piano_LED_ColorMode = STATIC_COLOR; 
 
 
         uint8_t redColorValue;
         uint8_t greenColorValue;
         uint8_t blueColorValue;
-        uint8_t HUE_value;
+        uint16_t hueValue = 0;
         
 
         Nota PianoNote[TOTAL_NOTE];
@@ -195,8 +195,12 @@ class Piano
             return ((PianoLED[LED_index].LedFlags & LED_STATE_FLAG) == 0x00);
         }
 
-        inline void turnOn(register uint8_t LED_index, uint8_t register r, uint8_t register g, uint8_t register b) {
-            LED_Interface->SetLedColor(LED_index, r, g, b);
+        inline void turnOn(register uint8_t LED_index) {
+            if(Piano_LED_ColorMode == STATIC_COLOR)
+                LED_Interface->SetLedColor(LED_index, redColorValue, greenColorValue, blueColorValue);
+            else
+                LED_Interface->SetLedColor_by_HUE(LED_index, hueValue);
+            
             PianoLED[LED_index].LedFlags |= 0x01;
         }
 
@@ -207,13 +211,24 @@ class Piano
         inline void clear() {
             LED_Interface->clear();  
         }
+        
 
+        //aggiorna tutti i LED, impostando il colore presente nelle variabili
         void inline UpdateLED_Color() {
             for(register uint8_t LED_index = 0; LED_index < TOTAL_LED; LED_index++) {
                 if(isOn(LED_index)) {
                     LED_Interface->SetLedColor(LED_index, redColorValue, greenColorValue, blueColorValue);
                 }
             }
+        }
+
+        //Carica il colore predefinito salvato nella EEPROM e lo imposto sui LED
+        void inline Load_and_Update_LED_Color() {
+            if(Piano_LED_ColorMode != STATIC_COLOR)
+                Piano_LED_ColorMode = STATIC_COLOR;
+
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);     
+            UpdateLED_Color();
         }
 
         float NoteToLed_Conversion(uint8_t note);
@@ -230,44 +245,55 @@ class Piano
         void refresh();
         void Print();
 
-
-        void nextColor() {
-            if(Piano_LED_ColorMode != STATIC_COLOR)
-                Piano_LED_ColorMode = STATIC_COLOR;
-
-            Piano_LED_ColorIndex = (Piano_LED_ColorIndex + 1) % COLOR_AVAILABLE; 
-            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);     
-            UpdateLED_Color();
+        void UpdateHue() {
+            hueValue++;
         }
 
-        void previousColor() {
-            if(Piano_LED_ColorMode != STATIC_COLOR)
-                Piano_LED_ColorMode = STATIC_COLOR;
-
-            if(Piano_LED_ColorIndex == 0) {
-                Piano_LED_ColorIndex = COLOR_AVAILABLE - 1;
-            } else {
-                Piano_LED_ColorIndex--;
+        void Forceclear() {
+            LED_Interface->clear(); 
+            for(register uint8_t i = 0; i < TOTAL_LED; i++) {
+               turnOff(i);
             }
-            
-            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
-            UpdateLED_Color();
         }
 
+        //imposta il colore successivo
+        void nextColor() {
+            Piano_LED_ColorIndex = (Piano_LED_ColorIndex + 1) % COLOR_AVAILABLE; 
+            Load_and_Update_LED_Color();
+        }
+
+        //imposta il colore precedente
+        void previousColor() {
+            Piano_LED_ColorIndex = ((Piano_LED_ColorIndex == 0) ? (COLOR_AVAILABLE - 1) : (Piano_LED_ColorIndex - 1));
+            Load_and_Update_LED_Color();
+        }
+
+        //imposta il colore predefinito presente all'indice specidicato
         void SetColor(uint8_t index) {
             Piano_LED_ColorIndex = (index % COLOR_AVAILABLE);           
-            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
+            Load_and_Update_LED_Color();
+        }
+
+        //imposta un colore a scelta.
+        void SetColor(uint8_t R, uint8_t G, uint8_t B) {
+            if(Piano_LED_ColorMode != STATIC_COLOR) Piano_LED_ColorMode = STATIC_COLOR;           
+            this->redColorValue   = R;
+            this->greenColorValue = G;
+            this->blueColorValue  = B;
             UpdateLED_Color();
         }
 
+        //imposta i colori RGB
         void RGB_Color() {
             if(Piano_LED_ColorMode != DYNAMIC_RGB_COLOR)
                 Piano_LED_ColorMode = DYNAMIC_RGB_COLOR;
         }
 
+        //imposta un'effetto
         void setEffect(uint8_t val) {
             this->Piano_LED_Animation = val;
         }
+
 
         void IncrementTranspose() {
             if(this->Trasnspose < 12)

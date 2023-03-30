@@ -44,11 +44,21 @@ class WS2812_interface
         }
 
         inline void SetLedColor(uint8_t register number, uint8_t register r, uint8_t register g, uint8_t register b) {
-            Serial.print("pixels: n = ");   Serial.print(number);
-            Serial.print(" r = ");          Serial.print(r);
-            Serial.print(" g = ");          Serial.print(g);
-            Serial.print(" b = ");          Serial.println(b);
+            //Serial.print("pixels: n = ");   Serial.print(number);
+            //Serial.print(" r = ");          Serial.print(r);
+            //Serial.print(" g = ");          Serial.print(g);
+            //Serial.print(" b = ");          Serial.println(b);
             pixels.setPixelColor(number, pixels.Color(r,g,b));
+        }
+
+        inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue) {
+            pixels.setPixelColor(number, pixels.ColorHSV(hue, 0xFF, 0xFF));
+        }
+        inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue, uint8_t brightness) {
+            pixels.setPixelColor(number, pixels.ColorHSV(hue, 0xFF, brightness));
+        }
+        inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue, uint8_t brightness, uint8_t saturation) {
+            pixels.setPixelColor(number, pixels.ColorHSV(hue, saturation, brightness));
         }
 
 

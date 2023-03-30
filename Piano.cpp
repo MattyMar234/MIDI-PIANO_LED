@@ -56,7 +56,7 @@ void Piano::PressNote(uint8_t note, uint8_t velocity)
     note += Trasnspose;
 
     //il 21 è lo 0
-    if(NOTE_START_OFFSET < 21) note = NOTE_START_OFFSET;
+    if(note < 21) note = NOTE_START_OFFSET;
     else if(note > NOTE_END_WITH_OFFSET) note = NOTE_END_WITH_OFFSET;
 
     note = note - NOTE_START_OFFSET;
@@ -64,16 +64,19 @@ void Piano::PressNote(uint8_t note, uint8_t velocity)
     PianoNote[note].Pressed = true;
     PianoNote[note].Velocity = velocity;
 
+    if(Piano_LED_Animation == RANDOM_ON_FORCE_EFFECT && velocity > 108) {
+      SetColor(random(COLOR_AVAILABLE));
+    }
+
 }
 
 void Piano::RelaseNote(uint8_t note)
 {
     note += Trasnspose;
-    if(NOTE_START_OFFSET < 21) note = NOTE_START_OFFSET;
+    if(note < 21) note = NOTE_START_OFFSET;
     else if(note > NOTE_END_WITH_OFFSET) note = NOTE_END_WITH_OFFSET;
 
     note = note - NOTE_START_OFFSET;
-
     PianoNote[note].Pressed = false;
 
 }
@@ -93,6 +96,7 @@ void Piano::UpDateLED(const register uint8_t LED_index)
       }
       case NO_DELAY_EFFECT:
       case NORMAL_EFFECT: 
+      case RANDOM_ON_FORCE_EFFECT: 
       {
 
         //il LED è acceso ?
@@ -102,7 +106,7 @@ void Piano::UpDateLED(const register uint8_t LED_index)
           if(!PianoLED[LED_index].check_turnOn()) 
           { 
             //se il tempo è finito
-            if(Piano_LED_Animation == NO_DELAY_EFFECT || PianoLED[LED_index].DissolvenceTime == 0) {
+            if(Piano_LED_Animation == NO_DELAY_EFFECT || Piano_LED_Animation == RANDOM_ON_FORCE_EFFECT || PianoLED[LED_index].DissolvenceTime == 0) {
               turnOff(LED_index);
             } 
             //altrimenti decremento il tempo
@@ -113,14 +117,11 @@ void Piano::UpDateLED(const register uint8_t LED_index)
         }
         //Posso accendere il LED ?
         else if(PianoLED[LED_index].check_turnOn()) {
-            turnOn(LED_index, redColorValue, greenColorValue, blueColorValue);
+            turnOn(LED_index);
         }
         break;
       }
-      case RANDOM_ON_FORCE_EFFECT: {
-
-        break;
-      }
+      
     } 
 }
 
