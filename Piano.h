@@ -9,16 +9,24 @@
 #include "Global.h"
 
 
+//Parametri MIDI
 #define NoteFast 127
 
+//parametri PianoForte
 #define TOTAL_NOTE 88
 #define PIANO_TOTAL_WHITE_NOTE 52
+#define PIANO_TOTAL_BLACK_NOTE 36
+#define NOTE_START_OFFSET 21
+#define WHITE_NOTE_PER_OCTAVE 7
+#define LED_STRIP_START_OFFSET 0
+
 #define PIANO_NOTE_LENGHT 2.4
+#define PIANO_WHITE_NOTE_LENGHT 2.4
+#define PIANO_BLACK_NOTE_LENGHT 1.2
+#define BLACK_NOTE_OFFSET_FROM_WHITE_NOTE ((PIANO_WHITE_NOTE_LENGHT/3)*2)
 #define LED_LENGHT  1.65
 
-#define NOTE_START_OFFSET 21
 #define NOTE_END_WITH_OFFSET (NOTE_START_OFFSET + TOTAL_NOTE - 1)
-
 #define PIANO_LENGHT (PIANO_TOTAL_WHITE_NOTE*PIANO_NOTE_LENGHT)
 #define TOTAL_LED (PIANO_LENGHT/LED_LENGHT)
 
@@ -41,6 +49,12 @@
 //formattazione
 #define ADDESS_DIGIT_SIZE 4
 
+//mi baso sull'ottava che parte dal DO
+const static boolean TestAlteredNote[] PROGMEM = {false, true, false, true, false, false, true, false, true, false, true, false};
+
+//lo shift consiste che l'ottava parte dal LA. (la 21° è A0), parto da li a contare
+const static boolean TestAlteredNote_Shifted[] PROGMEM = {false, true, false, false, true, false, true, false, false, true, false, true};
+const static uint8_t BlackNote_To_WhiteNote_Shifted[] PROGMEM = {0,0,1,2,2,3,3,4,5,5,6,6};
 
 const static uint8_t Colors [ColorAvailable][3] PROGMEM =  {
     
@@ -113,13 +127,10 @@ void LoadStringFromFlash(uint16_t Position, const char* array[]) {
 
 typedef struct Nota
 {
-    //private:
-
-    //public:
-        uint8_t NotaNumber;
-        bool Pressed;
-        uint8_t Velocity; //MAX 127
-        uint8_t LED_Index;
+    uint8_t NotaNumber;
+    uint8_t Velocity; //MAX 127
+    uint8_t LED_Index;
+    bool Pressed;
 
 }Nota;
 
@@ -129,9 +140,7 @@ class LED
         inline uint8_t GetNote_Number() {
             return ((this->LedFlags >> 1) & 0x03);
         }
-
     public:
-        //ArrayList<Nota*> attachedNote;
 
         //puntatore alla prima nota
         Nota* FistNotePointer = NULL;
@@ -151,9 +160,7 @@ class LED
         void addNote(Nota *p);
         void PrintAddress();
         void Update();
-        bool check_turnOn();
-        
-        
+        bool check_turnOn();     
 };
 
 
@@ -168,21 +175,26 @@ class Piano
         int8_t Trasnspose = 0;//+-127
 
         uint8_t Piano_LED_Animation = NORMAL_EFFECT;
-        uint8_t Piano_LED_ColorIndex = 0;
         uint8_t Piano_LED_ColorMode = STATIC_COLOR; 
+        uint8_t Piano_LED_ColorIndex = 0;
 
 
         uint8_t redColorValue;
         uint8_t greenColorValue;
         uint8_t blueColorValue;
         uint16_t hueValue = 0;
+
+        boolean switch1_state = false;
+        boolean switch2_state = false;
+        boolean switch3_state = false;
+
+        uint64_t debounce_time1 = 400;
+        uint64_t last_debounce_time1 = millis() - debounce_time1;
         
 
         Nota PianoNote[TOTAL_NOTE];
         LED  PianoLED[(int)TOTAL_LED];
    
-        //da sistemare
-        bool AlteredArray[NotePerOttava] = {false, true, false, true, false, false, true, false, true, false, true, false};
         uint8_t ToWhiteNote[NotePerOttava] = {0,0,1,1,2,3,3,4,4,5,5,6};
 
  
@@ -196,18 +208,21 @@ class Piano
         }
 
         inline void turnOn(register uint8_t LED_index) {
+            
             if(Piano_LED_ColorMode == STATIC_COLOR)
                 LED_Interface->SetLedColor(LED_index, redColorValue, greenColorValue, blueColorValue);
             else
                 LED_Interface->SetLedColor_by_HUE(LED_index, hueValue);
             
             PianoLED[LED_index].LedFlags |= 0x01;
+            
         }
 
         inline void turnOff(register uint8_t LED_index) {
             LED_Interface->SetLedColor(LED_index, 0x00, 0x00, 0x00);
             PianoLED[LED_index].LedFlags &= 0xFE;
         }
+
         inline void clear() {
             LED_Interface->clear();  
         }
@@ -215,11 +230,17 @@ class Piano
 
         //aggiorna tutti i LED, impostando il colore presente nelle variabili
         void inline UpdateLED_Color() {
+
             for(register uint8_t LED_index = 0; LED_index < TOTAL_LED; LED_index++) {
                 if(isOn(LED_index)) {
-                    LED_Interface->SetLedColor(LED_index, redColorValue, greenColorValue, blueColorValue);
-                }
+                    turnOff(LED_index);                 
+                    delayMicroseconds(100);
+                }/*else if(LED_index <= 32) {
+                    turnOff(LED_index);
+                    delayMicroseconds(400);
+                }*/
             }
+            
         }
 
         //Carica il colore predefinito salvato nella EEPROM e lo imposto sui LED
@@ -232,6 +253,7 @@ class Piano
         }
 
         float NoteToLed_Conversion(uint8_t note);
+        uint8_t Calculate_Associated_LEDs(uint8_t note);
         
 
     public:
@@ -242,12 +264,14 @@ class Piano
         void UpdateNote(uint8_t note);
         void PrintInformation(Nota *p);
         void UpDateLED(const register uint8_t LED_index);
-        void refresh();
         void Print();
 
-        void UpdateHue() {
-            hueValue++;
-        }
+        void function_Button1(register boolean state);
+        void function_Button2(register boolean state);
+        void function_Button3(register boolean state);
+        
+        void refresh() {LED_Interface->refresh();}
+        void UpdateHue() {hueValue++;}
 
         void Forceclear() {
             LED_Interface->clear(); 
@@ -255,6 +279,23 @@ class Piano
                turnOff(i);
             }
         }
+
+        void Load_nextColor() {
+            Piano_LED_ColorIndex = (Piano_LED_ColorIndex + 1) % COLOR_AVAILABLE; 
+            if(Piano_LED_ColorMode != STATIC_COLOR)
+                Piano_LED_ColorMode = STATIC_COLOR;
+
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
+        }
+
+        void Load_previousColor() {
+            Piano_LED_ColorIndex = ((Piano_LED_ColorIndex == 0) ? (COLOR_AVAILABLE - 1) : (Piano_LED_ColorIndex - 1));
+            if(Piano_LED_ColorMode != STATIC_COLOR)
+                Piano_LED_ColorMode = STATIC_COLOR;
+
+            LoadColorFromFlash(Piano_LED_ColorIndex, &this->redColorValue, &this->greenColorValue, &this->blueColorValue);
+        }
+
 
         //imposta il colore successivo
         void nextColor() {
@@ -268,7 +309,7 @@ class Piano
             Load_and_Update_LED_Color();
         }
 
-        //imposta il colore predefinito presente all'indice specidicato
+        //imposta il colore (predefinito) presente all'indice specificato
         void SetColor(uint8_t index) {
             Piano_LED_ColorIndex = (index % COLOR_AVAILABLE);           
             Load_and_Update_LED_Color();

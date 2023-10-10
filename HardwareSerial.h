@@ -223,10 +223,10 @@ class Interface_HardwareSerial
 
 #if defined(__AVR_ATmega2560__)
 
-class HardWareSerial1 : Interface_HardwareSerial<volatile uint8_t*, 1>
+class Hardware_Serial1 : Interface_HardwareSerial<volatile uint8_t*, 1>
 {
     public:
-        HardWareSerial1() : Interface_HardwareSerial(&UCSR1A, &UCSR1B, &UCSR1C, &UDR1, &UBRR1H, &UBRR1L){};
+        Hardware_Serial1() : Interface_HardwareSerial(&UCSR1A, &UCSR1B, &UCSR1C, &UDR1, &UBRR1H, &UBRR1L){};
         
         boolean init(uint64_t USART_BAUDRATE) {
             Interface_HardwareSerial::init(USART_BAUDRATE);
@@ -250,18 +250,58 @@ class HardWareSerial1 : Interface_HardwareSerial<volatile uint8_t*, 1>
 
 };
 
-class HardWareSerial2 : Interface_HardwareSerial<volatile uint8_t*, 2>
+class Hardware_Serial2 : Interface_HardwareSerial<volatile uint8_t*, 2>
 {
     public:
-        HardWareSerial2() : Interface_HardwareSerial(&UCSR2A, &UCSR2B, &UCSR2C, &UDR2, &UBRR2H, &UBRR2L) 
+        Hardware_Serial2() : Interface_HardwareSerial(&UCSR2A, &UCSR2B, &UCSR2C, &UDR2, &UBRR2H, &UBRR2L) 
         {};
+
+        boolean init(uint64_t USART_BAUDRATE) {
+            Interface_HardwareSerial::init(USART_BAUDRATE);
+        }
+
+        boolean attachInterrupt(void (*userFunc)(void), uint8_t InterruptType) {
+            Interface_HardwareSerial::attachInterrupt(userFunc, InterruptType);
+        }
+        
+        uint8_t read() {
+          return Interface_HardwareSerial::read();
+        }
+
+        void write(uint8_t data) {
+          Interface_HardwareSerial::write(data);
+        }
+
+        uint8_t available() {
+          return Interface_HardwareSerial::dataAvailable();
+        }
 };
 
-class HardWareSerial3 : Interface_HardwareSerial<volatile uint8_t*, 3>
+class Hardware_Serial3 : Interface_HardwareSerial<volatile uint8_t*, 3>
 {
     public:
-        HardWareSerial3() : Interface_HardwareSerial(&UCSR3A, &UCSR3B, &UCSR3C, &UDR3, &UBRR3H, &UBRR3L) 
+        Hardware_Serial3() : Interface_HardwareSerial(&UCSR3A, &UCSR3B, &UCSR3C, &UDR3, &UBRR3H, &UBRR3L) 
         {};
+
+        boolean init(uint64_t USART_BAUDRATE) {
+            Interface_HardwareSerial::init(USART_BAUDRATE);
+        }
+
+        boolean attachInterrupt(void (*userFunc)(void), uint8_t InterruptType) {
+            Interface_HardwareSerial::attachInterrupt(userFunc, InterruptType);
+        }
+        
+        uint8_t read() {
+          return Interface_HardwareSerial::read();
+        }
+
+        void write(uint8_t data) {
+          Interface_HardwareSerial::write(data);
+        }
+
+        uint8_t available() {
+          return Interface_HardwareSerial::dataAvailable();
+        }
 };
 
 

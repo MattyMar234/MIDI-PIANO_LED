@@ -13,12 +13,11 @@ class WS2812_interface
         uint8_t PixelsCount;
         uint8_t Pixels_PIN;
 
-
-
     public:
         WS2812_interface();
         
         inline void init(uint8_t PixelsCount, uint8_t Pixels_PIN, uint8_t brightness) {
+            noInterrupts();
             pixels = Adafruit_NeoPixel(PixelsCount, Pixels_PIN, NEO_GRB + NEO_KHZ800);
             PixelsCount = PixelsCount;
             Pixels_PIN = Pixels_PIN;
@@ -27,20 +26,28 @@ class WS2812_interface
             pixels.clear();
             //pixels.show();
             //pixels.setBrightness(brightness);
+            interrupts();
         }
 
         inline void setBrightness(uint8_t brightness) {
+            noInterrupts();
             pixels.setBrightness(brightness);
+            interrupts();
+
         }
 
         inline void refresh() {
             //Serial.println("pixels show!");
+            noInterrupts();
             pixels.show();
+            interrupts();
         }
 
         inline void clear() {
+            noInterrupts();
             pixels.clear();
             pixels.show();
+            interrupts();
         }
 
         inline void SetLedColor(uint8_t register number, uint8_t register r, uint8_t register g, uint8_t register b) {
@@ -48,17 +55,26 @@ class WS2812_interface
             //Serial.print(" r = ");          Serial.print(r);
             //Serial.print(" g = ");          Serial.print(g);
             //Serial.print(" b = ");          Serial.println(b);
+            
+            noInterrupts();
             pixels.setPixelColor(number, pixels.Color(r,g,b));
+            interrupts();
         }
 
         inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue) {
+            noInterrupts();
             pixels.setPixelColor(number, pixels.ColorHSV(hue, 0xFF, 0xFF));
+            interrupts();
         }
         inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue, uint8_t brightness) {
+            noInterrupts();
             pixels.setPixelColor(number, pixels.ColorHSV(hue, 0xFF, brightness));
+            interrupts();
         }
         inline void SetLedColor_by_HUE(uint8_t register number, uint16_t register hue, uint8_t brightness, uint8_t saturation) {
+            noInterrupts();
             pixels.setPixelColor(number, pixels.ColorHSV(hue, saturation, brightness));
+            interrupts();
         }
 
 

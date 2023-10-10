@@ -3,9 +3,15 @@
 
 
 #define DEBUG_PORT Serial
+#define BlueTooth Serial2
+
 
 //Led stript
 #define PIN_PIXELS     6
+#define BLUETOOTH_INTERRUPT_PIN 18
+#define BUTTON1_INTERRUPT_PIN 19
+#define BUTTON2_INTERRUPT_PIN 2
+#define BUTTON3_INTERRUPT_PIN 3
 
 //paramLed stript
 

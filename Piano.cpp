@@ -8,48 +8,97 @@
 
 Piano::Piano(uint8_t pin) 
 {
-    LED_Interface = new WS2812_interface();
-    LED_Interface->init(TOTAL_NOTE, pin, this->LED_MAX_Brightness);
+  LED_Interface = new WS2812_interface();
+  LED_Interface->init(TOTAL_NOTE, pin, this->LED_MAX_Brightness);
 
-    SetColor(0);
-    
+  //resetto il colore
+  SetColor(0);
 
+  
+  
+
+  //per tutte le note che possiede il PianoForte
+  for(register uint8_t i = 0; i < TOTAL_NOTE; i++)                                          
+  {
+    //inizializzo i parametri della Nota
+    register Nota *pNota = &PianoNote[i];//(Nota*)malloc(sizeof(Nota));                            
+    pNota->NotaNumber = i + NoteOffset;
+    pNota->Pressed = false;
+    pNota->Velocity = 0;
+    pNota->LED_Index = 0;
     
-    
-    for(register uint8_t i = 0; i < TOTAL_NOTE; i++)                                          //per tutte le note che possiede il PianoForte
+    //calcolo dove è situata la nota. (considero l'ottava che parte dal LA)
+    register uint8_t octave = i / 12;        
+    register uint8_t octaveNote = i % 12;
+    register boolean isAltered = pgm_read_byte(&(TestAlteredNote_Shifted[octaveNote]));
+    register uint8_t octaveWhiteElement = pgm_read_byte(&(BlackNote_To_WhiteNote_Shifted[octaveNote]));
+
+    //calcolo dove inizia e finisce la nota
+    float NoteStart_point = (octave*WHITE_NOTE_PER_OCTAVE + octaveWhiteElement)*PIANO_WHITE_NOTE_LENGHT + ((isAltered) ? BLACK_NOTE_OFFSET_FROM_WHITE_NOTE : 0);
+    float NoteEnd_point = NoteStart_point + ((isAltered) ? PIANO_WHITE_NOTE_LENGHT : PIANO_WHITE_NOTE_LENGHT);//PIANO_BLACK_NOTE_LENGHT
+
+
+    //cerco tutti i LED che sono nei limiti della Nota
+    for(register uint8_t j = 0; j < TOTAL_LED; j++) 
     {
-        //Calcolo i led corrispondenti alla Nota
-        float   floatValue = NoteToLed_Conversion(i + NoteOffset)/LED_LENGHT - 1;             //calcolo la posizione in floating point
-        uint8_t IntegerValue = (uint8_t) floatValue; 
+      float LED_Start_point = LED_LENGHT*j;
+      float LED_End_point = LED_Start_point + LED_LENGHT;
+      float distanceScrap = ((isAltered) ? PIANO_WHITE_NOTE_LENGHT/3 : PIANO_WHITE_NOTE_LENGHT/3);
 
+      //è inutile che calcolo anche quelli successivi
+      //if(LED_End_point > NoteEnd_point)
+      //  break;
 
-        // ================== Inizializzazione Nota ================== //
-        Nota *pNota = &PianoNote[i];//(Nota*)malloc(sizeof(Nota));                            //creao una oggetto puntatore nota e lo inizializzo
+      //Le condizioni
+      boolean A = ((LED_End_point >= (NoteStart_point + distanceScrap)) && (LED_End_point <= NoteEnd_point));
+      boolean B = ((LED_Start_point >= NoteStart_point) && (LED_Start_point <= NoteEnd_point - distanceScrap));
 
-        pNota->NotaNumber = i + NoteOffset;
-        pNota->Pressed = false;
-        pNota->Velocity = 0;
-        
-        //verifico la soglia
-        if((floatValue - IntegerValue) >= 0.55)
-            pNota->LED_Index = IntegerValue | 0x80;
-        else
-            pNota->LED_Index = IntegerValue & 0x7F;
-                                                            
-        
-        // ================== Inizializzazione LED ================== //
-        //eseguo 2 iterazioni se la nota ha due LED
-        for(register uint8_t j = 0; j < ((pNota->LED_Index & 0x80 == 0x80) ? 2 : 1); j++) 
-        {
-          register LED *pLED = &PianoLED[(pNota->LED_Index & 0x7F) + j];
-          pLED->addNote(pNota);
+      //il LED è nei confini della nota
+      if(A || B) {
+        register LED *pLED = &PianoLED[j];    //prendo il puntatore e lo invio alla funzione
+        pLED->addNote(pNota);
+
+        if(pNota->LED_Index == 0) {
+          pNota->LED_Index = j;
+        } else {
+          pNota->LED_Index |= 0x80;
         }
+      }
     }
+  }
 }
 
-void Piano::refresh() {
-  LED_Interface->refresh();
+void ::Piano::function_Button1(register boolean state) 
+{
+  if((millis() - this->last_debounce_time1) > this->debounce_time1) {
+    this->last_debounce_time1 = millis();
+    this->switch1_state = state;
+
+    if(this->switch1_state == false)
+      return;
+
+    switch(Piano_LED_Animation) 
+    {
+      case NORMAL_EFFECT: 
+      case NO_DELAY_EFFECT:
+      {
+        if(this->switch3_state) {
+          Load_previousColor();
+        }else {
+          Load_nextColor();
+        }
+        break;
+      }
+      case RANDOM_ON_FORCE_EFFECT: 
+      {
+
+        break;
+      }
+    }
+  }
 }
+
+
 
 void Piano::PressNote(uint8_t note, uint8_t velocity) 
 {
@@ -198,7 +247,24 @@ void Piano::PrintInformation(Nota *p)
   DEBUG_PORT.print(']');
 }
 
-float Piano::NoteToLed_Conversion(uint8_t note) 
+//NOTE_START_OFFSET corrisponde al valore 0
+/*uint8_t Piano::Calculate_Associated_LEDs(uint8_t note) 
+{ 
+  register uint8_t octave = note / 12;
+  register uint8_t octaveNote = note % 12;
+  register uint8_t LED_INDEX;
+
+  register boolean isAltered = pgm_read_byte(&(TestAlteredNote_Shifted[octaveNote]));
+  register uint8_t octaveWhiteElement = pgm_read_byte(&(BlackNote_To_WhiteNote_Shifted[octaveNote]));
+  
+  //calcolo dove inizia e finisce la nota
+  float NoteStart = (octave*WHITE_NOTE_PER_OCTAVE + octaveWhiteElement)*PIANO_WHITE_NOTE_LENGHT + ((isAltered) ? BLACK_NOTE_OFFSET_FROM_WHITE_NOTE : 0);
+  float NoteEnd = NoteStart + ((isAltered) ? BLACK_NOTE_OFFSET_FROM_WHITE_NOTE : PIANO_BLACK_NOTE_LENGHT);
+
+  return LED_INDEX;
+}*/
+
+/*float Piano::NoteToLed_Conversion(uint8_t note) 
 {
     uint16_t ottava = note/12 - 1;      //per capire in quale ottava sono
     uint16_t NoteNumber = note%12;      //per capire quale nota dell'ottava è
@@ -230,7 +296,7 @@ float Piano::NoteToLed_Conversion(uint8_t note)
     #endif
 
     return position;
-}
+}*/
 
 
 

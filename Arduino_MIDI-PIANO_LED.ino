@@ -3,10 +3,20 @@
 
 #include "Piano.h"
 #include "HardwareTimer.h"
+//#include "HardwareSerial.h"
 #include "SystemControls.h"
-#include "BlueTooth.h"
+//#include "BlueTooth.h"
+#include "Coda.h"
 
-#include <SoftwareSerial.h>
+
+
+const char BT_conectedMessage[] PROGMEM = {
+  "Connesso con Arduino-MIDI-PIANO\n"
+};
+
+
+boolean volatile dataAvailable = false;
+
 
 volatile uint8_t LED_Update_Index = (int)TOTAL_LED - 1;
 volatile uint8_t PerscalerCounter = 0;
@@ -21,8 +31,9 @@ USBH_MIDI  Midi(&Usb);
 
 
 
-Bluetooth<HardWareSerial1> BlueTooth = Bluetooth<HardWareSerial1>();
-ArrayList<uint8_t, 40> SerialBuffer = ArrayList<uint8_t, 40>();
+//Bluetooth<Hardware_Serial1> BlueTooth = Bluetooth<Hardware_Serial1>();
+//ArrayList<uint8_t, 40> SerialBuffer = ArrayList<uint8_t, 40>();
+Coda<40> SerialBuffer = Coda<40>();
 
 ISR(TIMER1_COMPA_vect) 
 {
@@ -37,26 +48,37 @@ ISR(TIMER1_COMPA_vect)
     }
   }
 
-  if(PerscalerCounter % 7 == 0) {
+  if(PerscalerCounter % 8 == 0) {
     MidiPiano.UpdateHue();
   }
   
   //450HZ
   if(PerscalerCounter == 0) {
     SystemControls::USB_POLLING_FLAG = true; 
-    HueUpdateCounter++;
-
-    
   }
 }
 
 
-ISR(TIMER2_COMPA_vect) {
+/*ISR(TIMER2_COMPA_vect) {
 
+}*/
+
+
+
+void BlueTooth__Interrupt__Status() {
+  SystemControls::BT_CONNECTED_MESSAGE = true;
 }
 
-void BlueTooth__Interrupt__RX() {
-  SerialBuffer.push(BlueTooth.read());
+void PianoButton1_Interrupt() {
+  MidiPiano.function_Button1(digitalRead(BUTTON1_INTERRUPT_PIN));
+}
+
+void PianoButton2_Interrupt() {
+  MidiPiano.function_Button2(digitalRead(BUTTON2_INTERRUPT_PIN));
+}
+
+void PianoButton3_Interrupt() {
+  MidiPiano.function_Button3(digitalRead(BUTTON3_INTERRUPT_PIN));
 }
 
 
@@ -66,11 +88,25 @@ void setup()
   SystemControls::Enable_MIDI_NOTE_SerialDebug = true;
 
   randomSeed(analogRead(0));
+  
 
-  Serial.begin(115200);
-
+  DEBUG_PORT.begin(115200);
   BlueTooth.begin(9600);
-  BlueTooth.attachInterrupt_RX(BlueTooth__Interrupt__RX);
+
+  pinMode(BLUETOOTH_INTERRUPT_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(BLUETOOTH_INTERRUPT_PIN), BlueTooth__Interrupt__Status, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(BUTTON1_INTERRUPT_PIN), PianoButton1_Interrupt, RISING);
+
+  
+
+  SystemControls::BT_CONNECTION_STATE = !digitalRead(BLUETOOTH_INTERRUPT_PIN);
+  if(SystemControls::BT_CONNECTION_STATE)
+    SystemControls::BT_CONNECTED_MESSAGE = true;
+
+  //BlueTooth.begin(9600);
+  //BlueTooth.attachInterrupt_RX(BlueTooth__Interrupt__RX);
+  //BlueTooth.attachInterrupt_BT_Status(BlueTooth__Interrupt__Status, 3);
+  //BlueTooth.setState(digitalRead(3));
 
   MidiPiano.Print();
 
@@ -102,9 +138,29 @@ void setup()
 
 
 
+
 void loop() 
 {
   register uint16_t USB_State;
+
+  if(SystemControls::BT_CONNECTED_MESSAGE) {
+      boolean newState = !digitalRead(BLUETOOTH_INTERRUPT_PIN);
+
+      if(SystemControls::BT_CONNECTION_STATE != newState) {
+        SystemControls::BT_CONNECTION_STATE = newState;
+
+        if(SystemControls::BT_CONNECTION_STATE) {
+          BlueTooth.println(F("Connesso con Arduino-MIDI-PIANO"));
+          DEBUG_PORT.print(F("BlueTooth connected\n"));
+        }
+        else {
+          DEBUG_PORT.print(F("BlueTooth disconnected\n"));
+        }
+        
+        SystemControls::BT_CONNECTED_MESSAGE = false;
+      }
+  }
+  
   
   // ==================== [<LED>] ==================== //
   if(SystemControls::USB_UPDATE_FLAG) {
@@ -118,12 +174,14 @@ void loop()
   }
 
   // ==================== [Serial Data] ==================== //
-  if(SerialBuffer.lenght() != 0) {
-    Serial_Command(SerialBuffer.front());
+
+  if(SystemControls::BT_CONNECTION_STATE && BlueTooth.available()) {
+    Serial_Command(BlueTooth.read());
   }
-  else if(Serial.available()) {
+  if(DEBUG_PORT.available()) {
     Serial_Command(Serial.read());
   }
+  
   
   // ==================== [<USB>] ==================== //
   if(SystemControls::USB_POLLING_FLAG) { //SystemControls::USB_POLLING_FLAG
@@ -219,7 +277,8 @@ void loop()
   }
 }
 
-inline void Serial_Command(register uint8_t data) {
+inline void Serial_Command(register uint8_t data) 
+{
     static char buffer[SERIAL_BUFFER_SIZE];
     static uint8_t bufferIndex = 0;
     static uint8_t args = 0;
