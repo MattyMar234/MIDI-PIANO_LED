@@ -1,11 +1,18 @@
 # import sys
 # import threading
-# import rtmidi
-# import mido
-# import time
+import rtmidi
+# print(rtmidi.__file__)
+# from rtmidi.midiutil import open_midiport
+# from rtmidi.midiutil import open_midiinput
 
+# import mido
+import time
 import board
 import neopixel
+from PianoElements.piano import Piano
+from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
+from Midi.midiLine import MidiLine
+from Midi.midiInterface import MidiInterface
 
 
 def print_data(data) -> None:
@@ -54,9 +61,25 @@ def main() -> None:
         
 
 def main2() -> None:
-    leds = neopixel.NeoPixel(board.D18, 70, brightness=0.2)
-    leds.fill((0, 0, 0))
+    # leds = neopixel.NeoPixel(board.D18, 70, brightness=0.2)
+    # leds.fill((0, 0, 0))
     
+    midiLine = MidiLine()
+    piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
+    pianoInterface = MidiInterface(mode=Mode.READ, midiLine=midiLine)
+    
+    midiLine.addObserver(piano)
+    midiLine.addObserver(pianoInterface)
+    
+    midiin = rtmidi.MidiIn()
+    available_ports = midiin.get_ports()
+  
+    pianoInterface.start(0)
+    
+    
+    piano.start()
+    time.sleep(4)
+    piano.stop()
     
 
 if __name__ == "__main__":
