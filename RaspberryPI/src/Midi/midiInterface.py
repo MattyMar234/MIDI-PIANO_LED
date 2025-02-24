@@ -1,14 +1,15 @@
-from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
-from Midi.midiLine import MidiLine
+from RaspberryPI.src.Midi.lineObserver import LineObserver, Mode, EventData
+from Midi.eventLine import EventLine
 from enum import Enum, auto
 import threading
 import time
+from Midi.eventLineInterface import EventLineInterface
 import rtmidi
 import mido
 
 
 
-class MidiInterface(MidiLineObserver):
+class MidiInterface(EventLineInterface):
     
 
     @classmethod
@@ -17,7 +18,7 @@ class MidiInterface(MidiLineObserver):
         available_ports = midiin.get_ports()
         return available_ports
     
-    def __init__(self, mode: Mode, midiLine: MidiLine, interface_name: str = ""):
+    def __init__(self, mode: Mode, midiLine: EventLine, interface_name: str = ""):
         super().__init__(mode)
         
         self._mode: MidiInterface.Mode = mode
@@ -42,7 +43,7 @@ class MidiInterface(MidiLineObserver):
         return wrapper 
    
     
-    def handleEvent(self, event: MidiEvent) -> None:
+    def handleEvent(self, event: EventData) -> None:
         if self._mode == Mode.WRITE:
             self._buffer.append(event)
     
@@ -82,7 +83,7 @@ class MidiInterface(MidiLineObserver):
             while self._run_task:
                 msg = midiin.get_message()
                 if msg:
-                    event = MidiEvent(msg)
+                    event = EventData(msg)
                     self._midiLine.notify(event)
                 else:
                     time.sleep(0.01)

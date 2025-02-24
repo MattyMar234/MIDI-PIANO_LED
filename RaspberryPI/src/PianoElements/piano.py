@@ -2,7 +2,7 @@ import board
 import neopixel
 from typing import Any, List
 import threading
-from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
+from RaspberryPI.src.Midi.lineObserver import LineObserver, Mode, EventData
 
 
 
@@ -33,7 +33,7 @@ class LED:
         return not self._state
 
 
-class Piano(MidiLineObserver):
+class Piano(LineObserver):
     
     def __init__ (
         self, 
@@ -132,7 +132,7 @@ class Piano(MidiLineObserver):
             
         self.clear_events()
     
-    def handleEvent(self, event: MidiEvent) -> None:
+    def handleEvent(self, event: EventData) -> None:
         pass
     
      

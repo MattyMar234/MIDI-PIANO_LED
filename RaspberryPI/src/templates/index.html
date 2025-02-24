@@ -19,9 +19,20 @@
 
     <script>
         function updateServer(data) {
-            $.post("/update", JSON.stringify(data), function(response) {
-                console.log(response);
-            }, "json");
+            $.ajax({
+                url: "/update",
+                type: "POST",
+                data: JSON.stringify(data),
+                contentType: "application/json", // 🔹 Importante per inviare JSON corretto!
+                dataType: "json",
+                success: function(response) {
+                    console.log(response);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Errore:", error);
+                    console.error("Risposta server:", xhr.responseText);
+                }
+            });
         }
 
         $("#slider1").on("input", function() {
