@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controllo Variabili</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-5">
+    <h2>Modifica le Variabili</h2>
+    <label>Slider 1: <span id="val_slider1">{{ variables.slider1 }}</span></label>
+    <input type="range" id="slider1" min="0" max="100" value="{{ variables.slider1 }}" class="form-range">
+    
+    <label>Slider 2: <span id="val_slider2">{{ variables.slider2 }}</span></label>
+    <input type="range" id="slider2" min="0" max="100" value="{{ variables.slider2 }}" class="form-range">
+
+    <button id="toggleBtn" class="btn btn-primary mt-3">Toggle</button>
+
+    <script>
+        function updateServer(data) {
+            $.post("/update", JSON.stringify(data), function(response) {
+                console.log(response);
+            }, "json");
+        }
+
+        $("#slider1").on("input", function() {
+            $("#val_slider1").text(this.value);
+            updateServer({ slider1: parseInt(this.value) });
+        });
+
+        $("#slider2").on("input", function() {
+            $("#val_slider2").text(this.value);
+            updateServer({ slider2: parseInt(this.value) });
+        });
+
+        $("#toggleBtn").click(function() {
+            updateServer({ button: true });
+        });
+    </script>
+</body>
+</html>
