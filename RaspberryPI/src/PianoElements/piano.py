@@ -1,27 +1,30 @@
+import globalData
 import board
 import neopixel
 from typing import Any, List
 import threading
-from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
-
+from Midi.eventLineInterface import EventLineInterface
+from Midi.eventLine import EventType
+from Midi.lineObserver import LineObserver, EventData
+from PianoElements.utility import *
 
 
 class Note:
 
-    def __init__ (self, noteNumber: int, led_index: int = 0) -> None:
-        self._noteNumber: int = noteNumber
-        self._pressed: bool = False
-        self._velocity: int = 0
-        self._led_index: int = led_index
+    def __init__ (self) -> None:
+        self.pressed: bool = False
+        self.velocity: int = 0
+        
 
 class LED:
     
-    def __init__ (self, led_index: int, brightness: float, notes: List[Note]):
-        self._brightness: float = brightness
-        self._led_index: int = led_index
-        self._notes: List[Note] = notes
-        self._state: bool = False
-        self._dissolvenceTime: float = 0.0
+    def __init__ (self):
+        self.brightness: float = 0.0
+        #self._led_index: int = led_index
+        self.state: bool = False
+        self.dissolvenceTime: float = 0.0
+        self.Led_Notes: List[Note] = list()
+
         
     def update_led_state(self, state: bool) -> None:
          self._state = state
@@ -33,7 +36,7 @@ class LED:
         return not self._state
 
 
-class Piano(MidiLineObserver):
+class Piano(EventLineInterface):
     
     def __init__ (
         self, 
@@ -46,7 +49,7 @@ class Piano(MidiLineObserver):
         transpose: int = 0,
         brightness: float = 0.2
     ) -> None:
-        super().__init__(Mode.WRITE)
+        super().__init__()
         
         
         if note_number < start_note or note_number > end_note:
@@ -54,7 +57,7 @@ class Piano(MidiLineObserver):
         
         self._buffer_lock = threading.Lock()
         self._settings_lock = threading.Lock()
-        self._event_buffer: List[Any] = list()
+        self._event_buffer: List[int] = list()
         self._task_thread: threading.Thread | None = None
         self._run_task: bool = False
         
@@ -67,15 +70,51 @@ class Piano(MidiLineObserver):
         self._transpose: int = transpose
         
         self._PianoNotes: List[Note] = list()
+        self._PianoLEDs: List[LED] = list()
         self._startNode_number: int = start_note
         self._endNode_number: int = end_note
         self._noteOfsset: int = note_number - start_note
         
-        for i in range(start_note, end_note + 1, 1):
-            self._PianoNotes.append(Note(i))
+        #inizializzo le note
+        for _ in range(end_note - start_note):
+            self._PianoNotes.append(Note())
+            
+        for _ in range(neoPixel_number):
+            self._PianoLEDs.append(LED())
+        
+        octave_offset = note_to_octave(globalData.NOTE_OFFSET)
+        octave_white_note = white_note_of_octave(globalData.NOTE_OFFSET)
+        total_white_note = octave_white_note + octave_offset * globalData.WHITE_NOTE_PER_OCTAVE
+        distance_offset = total_white_note*globalData.PIANO_WHITE_NOTE_LENGHT
+        
+        for i in range(len(self._PianoNotes)):
+            note = i + globalData.NOTE_OFFSET
+            octave = note_to_octave(note)
+            octave_index = octave_note_number(note)
+            isAltered = is_altered(note)
+            asNatualNote = to_white_note(note)
+            
+            st = (octave*globalData.WHITE_NOTE_PER_OCTAVE + asNatualNote)*globalData.PIANO_WHITE_NOTE_LENGHT
+            st -= distance_offset
+            
+            noteStart: float = st + (globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE if isAltered else 0)
+            noteEnd:float = noteStart + (globalData.PIANO_BLACK_NOTE_LENGHT if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT)
+            limit: float =  globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE + globalData.PIANO_WHITE_NOTE_LENGHT/3 if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT/3
+            
+            for j, led in enumerate(self._PianoLEDs):
+                LED_start = globalData.LED_LENGHT * j
+                LED_end = LED_start + globalData.LED_LENGHT
+                
+                a: bool = noteStart - limit <= LED_start <= noteEnd + limit
+                b: bool = noteStart - limit <= LED_end <= noteEnd + limit
+                
+                if a or b:
+                    led.Led_Notes.append(self._PianoNotes[i])
+                    
             
     def __del__(self) -> None:
         self.stop()
+        
         
     def _syncronized(funtion):
         def wrapper(self, *args, **kwargs):
@@ -110,31 +149,57 @@ class Piano(MidiLineObserver):
         self._task_thread = None
         print("Piano Thread stopped...")
     
-    @_syncronized_buffer
-    def add_event(self, event: Any) -> None:
-        self._event_buffer.append(event)
-    
-    @_syncronized_buffer  
-    def clear_events(self) -> None:
-        self._event_buffer.clear()
     
     def _task_loop(self) -> None:
-        self.clear_events()
+        self._clear_events_buffer()
         while self._run_task:
-            # self.update_leds()
-            # self._buffer_lock.acquire()
-            # for event in self._event_buffer:
-            #     self._handle_event(event)
-            # self._event_buffer.clear()
-            # self._buffer_lock.release()
-            # self._neopixel.show() 
-            pass 
             
-        self.clear_events()
+            while self._event_buffer > 0:
+                event = self._pop_event_buffer()
+                self._handle_event(event)
+            
+            
+            
+        self._clear_events_buffer()
     
-    def handleEvent(self, event: MidiEvent) -> None:
-        pass
+    def handleEvent(self, event: EventData):
+        
+        # match event.type:
+        #     case EventType.MIDI:
+        #         if self._run_task:
+        #             self._onMIDI_data_event(event.data[0])
+            
+        #     case EventType.SETTING_CHANGE:
+        #         pass
+            
+        #     case _ :
+        #         pass
+        
+        if event.type == EventType.MIDI:
+            if self._run_task:
+                self._onMIDI_data_event(event.data[0])
+            
+        elif event.type == EventType.SETTING_CHANGE:
+            pass
+        
+        else:
+            pass
     
+    
+    @_syncronized_buffer
+    def _onMIDI_data_event(self, midiData: List[int]) -> None:
+        self._event_buffer.append(midiData)
+    
+    @_syncronized_buffer  
+    def _clear_events_buffer(self) -> None: 
+        self._event_buffer.clear()
+    
+    @_syncronized_buffer     
+    def _pop_event_buffer(self) -> List[int]: 
+        return self._event_buffer.pop(0)
+    
+    def processMidiData(self, data: List[int]) -> None:
+        print(f"Processing MIDI data: {data}")
      
     def update_leds(self) -> None:
         pass

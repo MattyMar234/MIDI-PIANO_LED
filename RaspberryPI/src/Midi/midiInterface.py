@@ -1,15 +1,19 @@
-from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
-from Midi.midiLine import MidiLine
+from Midi.eventLine import EventLine, EventType, EventData
+from Midi.eventLineInterface import EventLineInterface
+from Midi.lineObserver import LineObserver 
 from enum import Enum, auto
 import threading
-import time
 import rtmidi
+import time
 import mido
 
 
 
-class MidiInterface(MidiLineObserver):
+class MidiInterface(EventLineInterface):
     
+    class Mode(Enum):
+        READ = auto()
+        WRITE = auto()
 
     @classmethod
     def getAvailablePorts():
@@ -17,13 +21,11 @@ class MidiInterface(MidiLineObserver):
         available_ports = midiin.get_ports()
         return available_ports
     
-    def __init__(self, mode: Mode, midiLine: MidiLine, interface_name: str = ""):
-        super().__init__(mode)
-        
-        self._mode: MidiInterface.Mode = mode
-        self._midiLine = midiLine
-        
+    def __init__(self, mode: Mode, interface_name: str = ""):
+        super().__init__()
+
         self._port: int | None = None
+        self._mode = mode
         self._lock = threading.Lock()
         self._task_thread: threading.Thread | None = None
         self._run_task: bool = False
@@ -42,9 +44,12 @@ class MidiInterface(MidiLineObserver):
         return wrapper 
    
     
-    def handleEvent(self, event: MidiEvent) -> None:
-        if self._mode == Mode.WRITE:
+    def handleEvent(self, event: EventData) -> None:
+        if self._mode == MidiInterface.Mode.WRITE:
             self._buffer.append(event)
+    
+    def isRunning(self) -> bool:
+        return self._task_thread != None
     
     @_syncronized
     def start(self, port) -> None:
@@ -53,41 +58,50 @@ class MidiInterface(MidiLineObserver):
         if self._task_thread != None:
             return
         
-        self._run_task = True
-        self._task_thread = threading.Thread(target=self._task_loop)
-        self._task_thread.start()
-    
+        try:
+            self._run_task = True
+            self._task_thread = threading.Thread(target=self._task_loop)
+            self._task_thread.start()
+        except Exception as e:
+            self._run_task = False
+            self._task_thread = None
+        
     @_syncronized   
     def stop(self) -> None:
         if self._task_thread == None:
             return
         
         self._run_task = False
-        self._task_thread.join()
+        self._task_thread.join(2)
         self._task_thread = None
         
     def _task_loop(self) -> None:
-        if self._mode == Mode.READ:
-            self._read_loop()
-        else:
-            self._write_loop()
         
-                
+        try:
+            if self._mode == MidiInterface.Mode.READ:
+                self._read_loop()
+            else:
+                self._write_loop()
+        except Exception as e:
+            print(e)
+            
+        finally:   
+            self.stop()
+        
+        
     def _read_loop(self) -> None:
         print(f"Midi interface {self._interface_name} start reading on port {self._port}")
         
-        try:
-            midiin = rtmidi.MidiIn()
-            midiin.open_port(self._port)
-            while self._run_task:
-                msg = midiin.get_message()
-                if msg:
-                    event = MidiEvent(msg)
-                    self._midiLine.notify(event)
-                else:
-                    time.sleep(0.01)
-        except Exception as e:
-            print(e)
+        midiin = rtmidi.MidiIn()
+        midiin.open_port(self._port)
+        while self._run_task:
+            msg = midiin.get_message()
+            if msg:
+                super().notifyEvent(EventData(msg, EventType.MIDI))
+            else:
+                time.sleep(0.01)
+        
+            
         
         
                 

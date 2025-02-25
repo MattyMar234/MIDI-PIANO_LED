@@ -10,9 +10,10 @@ import time
 import board
 import neopixel
 from PianoElements.piano import Piano
-from Midi.midiLineObserver import MidiLineObserver, Mode, MidiEvent
-from Midi.midiLine import MidiLine
+from Midi.lineObserver import LineObserver
+from Midi.eventLine import EventLine, EventData, EventType
 from Midi.midiInterface import MidiInterface
+from webServer import WebServer
 
 
 def print_data(data) -> None:
@@ -37,50 +38,78 @@ def listen_port(midiin, port) -> None:
 
 
 def main() -> None:
+    
     print("Entering main loop. Press Control-C to exit.")
+    
+    
+    midiLine = EventLine()
+    
+    
+    #DIPOSITIVI
+    piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
+    piano.InputLine = midiLine
+    piano.OutputLine = midiLine
+    
+    pianoInterface = MidiInterface(MidiInterface.Mode.READ)
+    pianoInterface.OutputLine = midiLine
+        
+    #midiLine.notify(None, EventData([123,234,234], EventType.MIDI))
+    server = WebServer('0.0.0.0', 5000)
+    server.OutputLine = midiLine
+    server.start()
+    
+
     midiin = rtmidi.MidiIn()
     
     while True:
         
-        available_ports = midiin.get_ports()
-
-        if available_ports:
-            print("-"*80, end="\n\n")
-            print("Dispositivi MIDI disponibili:")
-            for i, port in enumerate(available_ports):
-                print(f"{i}: {port}")
-            print("-"*80, end="\n\n")
-            
-            for i, port in enumerate(available_ports):
-                if "Digital Piano" in port:
-                    print(f"Porta {i} selezionata: {port}")
-                    listen_port(midiin, i)
-                    break
         
-        time.sleep(2)
+        while pianoInterface.isRunning():
+            time.sleep(2)
+            
+        while not pianoInterface.isRunning():
+    
+            available_ports = midiin.get_ports()
+            
+            if available_ports:
+                print("-"*80, end="\n\n")
+                print("Dispositivi MIDI disponibili:")
+                for i, port in enumerate(available_ports):
+                    print(f"{i}: {port}")
+                print("-"*80, end="\n\n")
+                
+                for i, port in enumerate(available_ports):
+                    if "Digital Piano" in port:
+                        print(f"Porta {i} selezionata: {port}")
+                        pianoInterface.start(i)
+                        #listen_port(midiin, i)
+                        break
+            
+            time.sleep(2)
         
 
 def main2() -> None:
+    pass
     # leds = neopixel.NeoPixel(board.D18, 70, brightness=0.2)
     # leds.fill((0, 0, 0))
     
-    midiLine = MidiLine()
-    piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
-    pianoInterface = MidiInterface(mode=Mode.READ, midiLine=midiLine)
+    # midiLine = EventLine()
+    # piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
+    # pianoInterface = MidiInterface(mode=Mode.READ, midiLine=midiLine)
     
-    midiLine.addObserver(piano)
-    midiLine.addObserver(pianoInterface)
+    # midiLine.addObserver(piano)
+    # midiLine.addObserver(pianoInterface)
     
-    midiin = rtmidi.MidiIn()
-    available_ports = midiin.get_ports()
+    # midiin = rtmidi.MidiIn()
+    # available_ports = midiin.get_ports()
   
-    pianoInterface.start(0)
+    # pianoInterface.start(0)
     
     
-    piano.start()
-    time.sleep(4)
-    piano.stop()
+    # piano.start()
+    # time.sleep(4)
+    # piano.stop()
     
 
 if __name__ == "__main__":
-    main2()
+    main()
