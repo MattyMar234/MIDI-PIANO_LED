@@ -30,7 +30,7 @@ class EventLineInterface(LineObserver):
         if self._outputLine is None: return
         self._outputLine.notify(self, event)
         
-    def handleEvent(self, event):
+    def handleEvent(self, event: EventData):
         pass
     
     @property
