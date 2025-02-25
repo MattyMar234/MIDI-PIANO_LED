@@ -59,6 +59,7 @@ class EventLine:
         try:
             print(f"Line: {self} | Notifying[{event}]")
             thread = threading.Thread(target=_task)
+
             thread.start()
             return True
         except Exception as e:

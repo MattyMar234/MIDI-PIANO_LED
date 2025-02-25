@@ -24,6 +24,7 @@ class MidiInterface(EventLineInterface):
     def __init__(self, mode: Mode, interface_name: str = ""):
         super().__init__()
 
+
         self._port: int | None = None
         self._mode = mode
         self._lock = threading.Lock()
@@ -76,7 +77,6 @@ class MidiInterface(EventLineInterface):
         self._task_thread = None
         
     def _task_loop(self) -> None:
-        
         try:
             if self._mode == MidiInterface.Mode.READ:
                 self._read_loop()

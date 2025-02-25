@@ -9,6 +9,7 @@ class EventLineInterface(LineObserver):
         self._inputLine: EventLine | None = None
         self._outputLine: EventLine | None = None
 
+
     
     def setInputLine(self, inputLine: EventLine) -> None:
         if self._inputLine is not None:
@@ -30,7 +31,7 @@ class EventLineInterface(LineObserver):
         if self._outputLine is None: 
             print("No output line set")
             return
-        self._outputLine.notify(self, event)
+
         
     def handleEvent(self, event: EventData):
         pass
