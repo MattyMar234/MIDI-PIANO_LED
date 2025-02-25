@@ -49,6 +49,7 @@ def main() -> None:
     piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
     piano.InputLine = midiLine
     piano.OutputLine = midiLine
+    piano.listenEvent(EventType.MIDI)
     
     pianoInterface = MidiInterface(MidiInterface.Mode.READ)
     pianoInterface.OutputLine = midiLine
@@ -56,9 +57,10 @@ def main() -> None:
     #midiLine.notify(None, EventData([123,234,234], EventType.MIDI))
     server = WebServer('0.0.0.0', 5000)
     server.OutputLine = midiLine
+    
+    piano.start()
     server.start()
     
-
     midiin = rtmidi.MidiIn()
     
     while True:

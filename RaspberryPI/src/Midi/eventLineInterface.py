@@ -27,11 +27,13 @@ class EventLineInterface(LineObserver):
         if self._inputLine is None: return
         self._inputLine.removeObserver(self, eventType)
     
-    def notifyEvent(self, event: EventData) -> None:
+    def notifyEvent(self, event: EventData) -> bool:
         if self._outputLine is None: 
             print("No output line set")
             return
 
+        self._outputLine.notify(self, event)
+        return True
         
     def handleEvent(self, event: EventData):
         pass

@@ -55,7 +55,7 @@ class EventLine:
             for observer in self._event_obsevers[event.eventType]:
                 if not(obs is None) and observer == obs:
                     continue
-                observer.handleEvent(event.data)
+                observer.handleEvent(event)
         try:
             print(f"Line: {self} | Notifying[{event}]")
             thread = threading.Thread(target=_task)

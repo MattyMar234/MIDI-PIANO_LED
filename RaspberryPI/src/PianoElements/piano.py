@@ -7,6 +7,17 @@ from Midi.eventLineInterface import EventLineInterface
 from Midi.eventLine import EventType
 from Midi.lineObserver import LineObserver, EventData
 from PianoElements.utility import *
+import time
+from enum import Enum
+
+
+class MIDI_COMMANDS(Enum):
+    NOTE_ON = 0x09
+    NOTE_OFF = 0x08
+    POLYPHONIC_AFTERTOUCH = 0x0A
+    CONTROL_CHANGE = 0x0B
+    PROGRAM_CHANGE = 0x0C
+
 
 
 class Note:
@@ -14,6 +25,7 @@ class Note:
     def __init__ (self) -> None:
         self.pressed: bool = False
         self.velocity: int = 0
+        self.LEDs_index: List[int] = list()
         
 
 class LED:
@@ -110,6 +122,7 @@ class Piano(EventLineInterface):
                 
                 if a or b:
                     led.Led_Notes.append(self._PianoNotes[i])
+                    self._PianoNotes[i].LEDs_index.append(j)
                     
             
     def __del__(self) -> None:
@@ -119,13 +132,13 @@ class Piano(EventLineInterface):
     def _syncronized(funtion):
         def wrapper(self, *args, **kwargs):
             with self._settings_lock:
-                funtion(self, *args, **kwargs)
+                return funtion(self, *args, **kwargs)
         return wrapper
     
     def _syncronized_buffer(funtion):
         def wrapper(self, *args, **kwargs):
             with self._buffer_lock:
-                funtion(self, *args, **kwargs)
+                return funtion(self, *args, **kwargs)
         return wrapper
     
     @_syncronized
@@ -152,18 +165,35 @@ class Piano(EventLineInterface):
     
     def _task_loop(self) -> None:
         self._clear_events_buffer()
+        lastUpdate: float = 0.0
+        
         while self._run_task:
             
-            while self._event_buffer > 0:
+            while len(self._event_buffer) > 0:
                 event = self._pop_event_buffer()
-                self._handle_event(event)
-            
+                print("pre procc: ", event)
+                self.processMidiData(event)
+                
+            if time.time() - lastUpdate > 1/globalData.LED_REFRESH_RATE:
+                lastUpdate = time.time()
+            self.update_leds()
             
             
         self._clear_events_buffer()
+        
+    def update_leds(self) -> None:
+        for i, led in enumerate(self._PianoLEDs):
+            for note in led.Led_Notes:
+                if note.pressed:
+                    self._neopixel[i] = (255, 255, 255)
+                    print("heree1")
+                    break
+                else:
+                    self._neopixel[i] = (0, 0, 0)
+        self._neopixel.show()
+        #print("heree2")
     
     def handleEvent(self, event: EventData):
-        
         # match event.type:
         #     case EventType.MIDI:
         #         if self._run_task:
@@ -175,11 +205,12 @@ class Piano(EventLineInterface):
         #     case _ :
         #         pass
         
-        if event.type == EventType.MIDI:
+        print(event)
+        if event.eventType == EventType.MIDI:
             if self._run_task:
                 self._onMIDI_data_event(event.data[0])
             
-        elif event.type == EventType.SETTING_CHANGE:
+        elif event.eventType == EventType.SETTING_CHANGE:
             pass
         
         else:
@@ -188,6 +219,7 @@ class Piano(EventLineInterface):
     
     @_syncronized_buffer
     def _onMIDI_data_event(self, midiData: List[int]) -> None:
+        print("MIDI DATA: ", midiData)
         self._event_buffer.append(midiData)
     
     @_syncronized_buffer  
@@ -196,16 +228,57 @@ class Piano(EventLineInterface):
     
     @_syncronized_buffer     
     def _pop_event_buffer(self) -> List[int]: 
-        return self._event_buffer.pop(0)
+        event = self._event_buffer.pop(0)
+        print("pop: ", event)
+        return event
     
-    def processMidiData(self, data: List[int]) -> None:
-        print(f"Processing MIDI data: {data}")
+    def processMidiData(self, midi: List[int]) -> None:
+        print(f"Processing MIDI data: {midi}")
+        
+   
+    
+        command = (midi[0] & 0xF0) >> 4
+        channel = midi[0] & 0x0F
+        
+        print(command)
+        
+        if command == MIDI_COMMANDS.NOTE_ON.value:
+            note = midi[1] + self._transpose - self._noteOfsset
+            velocity = midi[2]
+        
+            if velocity == 0:
+                self.resetNote(note)
+            else:
+                self.setNote(note, velocity)
+                
+        elif command == MIDI_COMMANDS.NOTE_OFF.value:
+            note = midi[1] + self._transpose - self._noteOfsset
+            velocity = midi[2]
+
+            note = note + self._transpose - self._noteOfsset
+            self.resetNote(note)
+            
      
-    def update_leds(self) -> None:
-        pass
+    def setNote(self, note: int, velocity: int) -> None:
+        if note < 0 or note > len(self._PianoNotes):
+            return
+
+        print(f"Note ON: {note}, Velocity: {velocity}")
+        self._PianoNotes[note].pressed = True
+        self._PianoNotes[note].velocity = velocity
     
-    def setNote(self, note: int) -> None:
-        pass
     
     def resetNote(self, note: int) -> None:
-        pass
+        if note < 0 or note > len(self._PianoNotes):
+            return
+        
+        print(f"Note OFF: {note}")
+        self._PianoNotes[note].pressed = False
+        self._PianoNotes[note].velocity = 0
+        
+    def turnOnLed(self, led: int) -> None:
+        if led < 0 or led > len(self._PianoLEDs):
+            return
+
+        self._PianoLEDs[led].state = True
+        
