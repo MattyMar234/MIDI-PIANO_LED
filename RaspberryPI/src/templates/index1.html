@@ -9,19 +9,13 @@
 </head>
 <body class="container mt-5">
     <h2>Modifica le Variabili</h2>
-    
     <label>Slider 1: <span id="val_slider1">{{ variables.slider1 }}</span></label>
     <input type="range" id="slider1" min="0" max="100" value="{{ variables.slider1 }}" class="form-range">
     
     <label>Slider 2: <span id="val_slider2">{{ variables.slider2 }}</span></label>
     <input type="range" id="slider2" min="0" max="100" value="{{ variables.slider2 }}" class="form-range">
-    
-    <button id="toggleBtn" class="btn btn-primary mt-3">Toggle</button>
 
-    <h3 class="mt-5">Console</h3>
-    <div id="console" class="border p-3" style="height: 200px; overflow-y: auto; background-color: #f8f9fa;">
-        <!-- Qui verranno visualizzati i messaggi -->
-    </div>
+    <button id="toggleBtn" class="btn btn-primary mt-3">Toggle</button>
 
     <script>
         function updateServer(data) {
@@ -29,24 +23,16 @@
                 url: "/update",
                 type: "POST",
                 data: JSON.stringify(data),
-                contentType: "application/json", 
+                contentType: "application/json", // 🔹 Importante per inviare JSON corretto!
                 dataType: "json",
                 success: function(response) {
                     console.log(response);
-                    updateConsole(response.message); // Aggiungi il messaggio alla console
                 },
                 error: function(xhr, status, error) {
                     console.error("Errore:", error);
                     console.error("Risposta server:", xhr.responseText);
                 }
             });
-        }
-
-        function updateConsole(message) {
-            const consoleDiv = $("#console");
-            const newMessage = $("<div>").text(message);
-            consoleDiv.append(newMessage);
-            consoleDiv.scrollTop(consoleDiv[0].scrollHeight); // Scorre fino al fondo
         }
 
         $("#slider1").on("input", function() {

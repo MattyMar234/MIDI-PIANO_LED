@@ -1,6 +1,8 @@
 
 from typing import Final
 
+
+PIANO_PORT_NAME: Final[str] = "Digital Piano"
 NOTE_OFFSET: Final[int] = 21
 LED_LENGHT: float = 1.65
 PIANO_NOTE_LENGHT: float = 2.4

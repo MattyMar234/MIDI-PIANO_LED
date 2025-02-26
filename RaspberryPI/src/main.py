@@ -1,5 +1,6 @@
 # import sys
 # import threading
+from RaspberryPI.src import globalData
 import rtmidi
 # print(rtmidi.__file__)
 # from rtmidi.midiutil import open_midiport
@@ -14,6 +15,11 @@ from Midi.lineObserver import LineObserver
 from Midi.eventLine import EventLine, EventData, EventType
 from Midi.midiInterface import MidiInterface
 from webServer import WebServer
+import logging
+
+
+
+
 
 
 def print_data(data) -> None:
@@ -39,52 +45,75 @@ def listen_port(midiin, port) -> None:
 
 def main() -> None:
     
-    print("Entering main loop. Press Control-C to exit.")
+    logging.info("Entering main loop. Press Control-C to exit.")
+    
+    #EVENT LINES
+    midiEventsLine = EventLine()
     
     
-    midiLine = EventLine()
-    
-    
-    #DIPOSITIVI
+    #-------DIPOSITIVI & CONNESSIONI-------#
+    #piano
     piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
-    piano.InputLine = midiLine
-    piano.OutputLine = midiLine
+    piano.InputLine = midiEventsLine
+    piano.OutputLine = midiEventsLine
     piano.listenEvent(EventType.MIDI)
+    piano.listenEvent(EventType.SETTING_CHANGE)
     
+    #piano midi input
     pianoInterface = MidiInterface(MidiInterface.Mode.READ)
-    pianoInterface.OutputLine = midiLine
-        
-    #midiLine.notify(None, EventData([123,234,234], EventType.MIDI))
+    pianoInterface.OutputLine = midiEventsLine
+    piano.listenEvent(EventType.SETTING_CHANGE)
+
+    #midi output  
+    pianoInterface = MidiInterface(MidiInterface.Mode.WRITE)
+    pianoInterface.InputLine = midiEventsLine
+    piano.listenEvent(EventType.MIDI)
+    piano.listenEvent(EventType.SETTING_CHANGE)
+
+    #web server
     server = WebServer('0.0.0.0', 5000)
-    server.OutputLine = midiLine
+    server.OutputLine = midiEventsLine
+    server.InputLine = midiEventsLine
+    piano.listenEvent(EventType.MIDI)
+    piano.listenEvent(EventType.SETTING_CHANGE)
     
     piano.start()
     server.start()
     
     midiin = rtmidi.MidiIn()
+    available_ports: int = -1
     
-    while True:
-        
-        
+    while True:    
+
+        #ogni tanto controllo se l'interfaccia è attiva
         while pianoInterface.isRunning():
             time.sleep(2)
+            available_ports = -1
             
+        #cerca la porta midi da utilizzare    
         while not pianoInterface.isRunning():
     
             available_ports = midiin.get_ports()
-            
-            if available_ports:
-                print("-"*80, end="\n\n")
-                print("Dispositivi MIDI disponibili:")
-                for i, port in enumerate(available_ports):
-                    print(f"{i}: {port}")
-                print("-"*80, end="\n\n")
+            number = len(available_ports)
+
+            #verifico se ci sono nuove porte
+            if number != available_ports:
+                available_ports = number
+
+                if number == 0:
+                    logging.info("No Midi Port found")
+                else:
+                    logging.info("-"*80)
+                    logging.info("Avaialble MIDI device:")
+                
+                    for i, port in enumerate(available_ports):
+                        logging.info(f"- {i}: {port}")
+                    logging.info("-"*80)
                 
                 for i, port in enumerate(available_ports):
-                    if "Digital Piano" in port:
-                        print(f"Porta {i} selezionata: {port}")
+                    if globalData.PIANO_PORT_NAME in port:
+                        #print(f"Porta {i} selezionata: {port}")
                         pianoInterface.start(i)
-                        #listen_port(midiin, i)
                         break
             
             time.sleep(2)
@@ -114,4 +143,5 @@ def main2() -> None:
     
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     main()

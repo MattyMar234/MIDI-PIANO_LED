@@ -1,5 +1,6 @@
 
 
+from collections import deque
 import signal
 import subprocess
 import time
@@ -14,7 +15,11 @@ from Midi.eventLineInterface import EventLineInterface
 from Midi.eventLine import EventData, EventLine, EventType
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
+
+log_messages = deque(maxlen=20)
+log_messages.append("cioooo1")
+log_messages.append("cioooo2")
 
 class WebServer(EventLineInterface):
     
@@ -26,6 +31,8 @@ class WebServer(EventLineInterface):
         self._app.route('/update', methods=['POST'])(self.update)
         #self._app.add_url_rule('/update', 'update', self.update, methods=['POST'])
         self._app.route('/stop', methods=['GET'])(self.stopServer)
+        self._app.route('/logs', methods=['GET'])(self.get_logs)
+        
         self._PID = os.getpid()
         
         print(f"Template folder: {self._app.template_folder}")
@@ -102,6 +109,10 @@ class WebServer(EventLineInterface):
         logging.debug("Page requested: 'index.html'")  
         return render_template('index.html', variables=self._variables)
     
+    def get_logs(self):
+        # Restituisce gli ultimi 100 messaggi
+        return jsonify(list(log_messages))
+
     def update(self):
         data = request.get_json(silent=True)
         
@@ -134,8 +145,8 @@ if __name__ == '__main__':
     server = WebServer('0.0.0.0', 5000)
     server.OutputLine = line
     server.start()
-    time.sleep(5)
-    server.stop()
+    # time.sleep(5)
+    # server.stop()
     
     try:
         while True:
