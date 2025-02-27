@@ -24,6 +24,7 @@ log_messages.append("cioooo2")
 class WebServer(EventLineInterface):
     
     def __init__(self, host: str, port: int, folderName: str = 'templates'):
+        super().__init__()
         TEMPLATE_FOLDER = WebServer._find_templates_folder(folderName=folderName)
         
         self._app = Flask(__name__, template_folder=TEMPLATE_FOLDER)

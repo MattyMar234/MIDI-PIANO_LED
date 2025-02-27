@@ -1,6 +1,6 @@
 # import sys
 # import threading
-from RaspberryPI.src import globalData
+import globalData
 import rtmidi
 # print(rtmidi.__file__)
 # from rtmidi.midiutil import open_midiport
@@ -65,10 +65,10 @@ def main() -> None:
     piano.listenEvent(EventType.SETTING_CHANGE)
 
     #midi output  
-    pianoInterface = MidiInterface(MidiInterface.Mode.WRITE)
-    pianoInterface.InputLine = midiEventsLine
-    piano.listenEvent(EventType.MIDI)
-    piano.listenEvent(EventType.SETTING_CHANGE)
+    # pianoInterface = MidiInterface(MidiInterface.Mode.WRITE)
+    # pianoInterface.InputLine = midiEventsLine
+    # piano.listenEvent(EventType.MIDI)
+    # piano.listenEvent(EventType.SETTING_CHANGE)
 
     #web server
     server = WebServer('0.0.0.0', 5000)
@@ -93,8 +93,8 @@ def main() -> None:
         #cerca la porta midi da utilizzare    
         while not pianoInterface.isRunning():
     
-            available_ports = midiin.get_ports()
-            number = len(available_ports)
+            ports = midiin.get_ports()
+            number = len(ports)
 
             #verifico se ci sono nuove porte
             if number != available_ports:
@@ -106,11 +106,11 @@ def main() -> None:
                     logging.info("-"*80)
                     logging.info("Avaialble MIDI device:")
                 
-                    for i, port in enumerate(available_ports):
+                    for i, port in enumerate(ports):
                         logging.info(f"- {i}: {port}")
                     logging.info("-"*80)
                 
-                for i, port in enumerate(available_ports):
+                for i, port in enumerate(ports):
                     if globalData.PIANO_PORT_NAME in port:
                         #print(f"Porta {i} selezionata: {port}")
                         pianoInterface.start(i)

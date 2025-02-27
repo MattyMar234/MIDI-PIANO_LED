@@ -9,6 +9,7 @@ from Midi.lineObserver import LineObserver, EventData
 from PianoElements.utility import *
 import time
 from enum import Enum
+import logging
 
 
 class MIDI_COMMANDS(Enum):
@@ -17,6 +18,10 @@ class MIDI_COMMANDS(Enum):
     POLYPHONIC_AFTERTOUCH = 0x0A
     CONTROL_CHANGE = 0x0B
     PROGRAM_CHANGE = 0x0C
+    
+
+class ANIMATION(Enum):
+    pass
 
 
 
@@ -30,7 +35,8 @@ class Note:
 
 class LED:
     
-    def __init__ (self):
+    def __init__ (self, index: int):
+        self.index: int = index
         self.brightness: float = 0.0
         #self._led_index: int = led_index
         self.state: bool = False
@@ -85,42 +91,54 @@ class Piano(EventLineInterface):
         self._PianoLEDs: List[LED] = list()
         self._startNode_number: int = start_note
         self._endNode_number: int = end_note
-        self._noteOfsset: int = note_number - start_note
+        #self._noteOfsset: int = note_number - start_note
         
         #inizializzo le note
         for _ in range(end_note - start_note):
             self._PianoNotes.append(Note())
             
-        for _ in range(neoPixel_number):
-            self._PianoLEDs.append(LED())
+        for i in range(neoPixel_number):
+            self._PianoLEDs.append(LED(i))
         
-        octave_offset = note_to_octave(globalData.NOTE_OFFSET)
-        octave_white_note = white_note_of_octave(globalData.NOTE_OFFSET)
-        total_white_note = octave_white_note + octave_offset * globalData.WHITE_NOTE_PER_OCTAVE
-        distance_offset = total_white_note*globalData.PIANO_WHITE_NOTE_LENGHT
+        # octave_offset = note_to_octave(globalData.NOTE_OFFSET)
+        # octave_white_note = white_note_of_octave(globalData.NOTE_OFFSET)
+        # total_white_note = octave_white_note + octave_offset * globalData.WHITE_NOTE_PER_OCTAVE
+        # distance_offset = total_white_note*globalData.PIANO_WHITE_NOTE_LENGHT
+        
+        
+        
+        startOffset = 0
         
         for i in range(len(self._PianoNotes)):
             note = i + globalData.NOTE_OFFSET
             octave = note_to_octave(note)
             octave_index = octave_note_number(note)
-            isAltered = is_altered(note)
-            asNatualNote = to_white_note(note)
+            isAltered = is_altered(octave_index)
+            asNatualNote = to_white_note(octave_index)
             
-            st = (octave*globalData.WHITE_NOTE_PER_OCTAVE + asNatualNote)*globalData.PIANO_WHITE_NOTE_LENGHT
-            st -= distance_offset
+            startPoint = (octave*globalData.WHITE_NOTE_PER_OCTAVE + asNatualNote)*globalData.PIANO_WHITE_NOTE_LENGHT
             
-            noteStart: float = st + (globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE if isAltered else 0)
+            if i == 0:
+                startOffset = startPoint + globalData.LED_STRIP_OFFSET
+                
+            
+            noteStart: float = startPoint - startOffset + (globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE if isAltered else 0)
             noteEnd:float = noteStart + (globalData.PIANO_BLACK_NOTE_LENGHT if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT)
-            limit: float =  globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE + globalData.PIANO_WHITE_NOTE_LENGHT/3 if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT/3
+            limit: float =  0.4#globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE + globalData.PIANO_WHITE_NOTE_LENGHT/3 if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT/3
+            
+            print(f"Note {note}: startPoint={startPoint} Altered={isAltered} start={noteStart} end={noteEnd}")
             
             for j, led in enumerate(self._PianoLEDs):
                 LED_start = globalData.LED_LENGHT * j
                 LED_end = LED_start + globalData.LED_LENGHT
                 
-                a: bool = noteStart - limit <= LED_start <= noteEnd + limit
-                b: bool = noteStart - limit <= LED_end <= noteEnd + limit
+                # a: bool = noteStart - limit <= (LED_start + globalData.LED_LENGHT/2)  <= noteEnd + limit
+                # b: bool = noteStart - limit <= (LED_end - globalData.LED_LENGHT/2) <= noteEnd + limit
+                a: bool = noteStart - limit <= (LED_start)  <= noteEnd + limit
+                b: bool = noteStart - limit <= (LED_end) <= noteEnd + limit
                 
                 if a or b:
+                    print(f"LED {j}: start={LED_start} end={LED_end} assigned to NOTE {note}")
                     led.Led_Notes.append(self._PianoNotes[i])
                     self._PianoNotes[i].LEDs_index.append(j)
                     
@@ -146,7 +164,8 @@ class Piano(EventLineInterface):
         if self._task_thread is not None:
             raise RuntimeError("Task already started")
         
-        print("Piano Thread started...")
+        logging.info("Piano started...")
+
         self._task_thread = threading.Thread(target=self._task_loop)
         self._run_task = True
         self._task_thread.start()
@@ -171,25 +190,40 @@ class Piano(EventLineInterface):
             
             while len(self._event_buffer) > 0:
                 event = self._pop_event_buffer()
-                print("pre procc: ", event)
                 self.processMidiData(event)
                 
             if time.time() - lastUpdate > 1/globalData.LED_REFRESH_RATE:
                 lastUpdate = time.time()
-            self.update_leds()
+                self.update_leds()
             
             
         self._clear_events_buffer()
         
     def update_leds(self) -> None:
-        for i, led in enumerate(self._PianoLEDs):
-            for note in led.Led_Notes:
-                if note.pressed:
-                    self._neopixel[i] = (255, 255, 255)
-                    print("heree1")
-                    break
-                else:
-                    self._neopixel[i] = (0, 0, 0)
+        #for i, led in enumerate(self._PianoLEDs):
+        for led in self._PianoLEDs:
+            if led.state:
+                turnOff: bool = True
+                
+                for note in led.Led_Notes:
+                    if note.pressed:
+                        led.dissolvenceTime = time.time()
+                        turnOff = False
+                        break
+                    
+                if turnOff and (time.time() - led.dissolvenceTime > globalData.LED_DISSOLVENCE_TIME):
+                    self.turnOff_LED(led)
+            # else:
+            #     for note in led.Led_Notes:
+            #         if note.pressed:
+            
+                
+            #         self._neopixel[i] = (255, 255, 255)
+                    
+            #         break
+            #     else:
+                    
+                    
         self._neopixel.show()
         #print("heree2")
     
@@ -219,7 +253,7 @@ class Piano(EventLineInterface):
     
     @_syncronized_buffer
     def _onMIDI_data_event(self, midiData: List[int]) -> None:
-        print("MIDI DATA: ", midiData)
+        #print("MIDI DATA: ", midiData)
         self._event_buffer.append(midiData)
     
     @_syncronized_buffer  
@@ -229,22 +263,21 @@ class Piano(EventLineInterface):
     @_syncronized_buffer     
     def _pop_event_buffer(self) -> List[int]: 
         event = self._event_buffer.pop(0)
-        print("pop: ", event)
+        #print("pop: ", event)
         return event
     
     def processMidiData(self, midi: List[int]) -> None:
-        print(f"Processing MIDI data: {midi}")
         
-   
-    
+
         command = (midi[0] & 0xF0) >> 4
         channel = midi[0] & 0x0F
-        
-        print(command)
-        
+        print(f"Processing MIDI data: {midi} -> command: 0X{command:02x} channel: 0X{channel:02x}")
+
+
         if command == MIDI_COMMANDS.NOTE_ON.value:
-            note = midi[1] + self._transpose - self._noteOfsset
+            note = midi[1] + self._transpose - globalData.NOTE_OFFSET
             velocity = midi[2]
+            
         
             if velocity == 0:
                 self.resetNote(note)
@@ -252,33 +285,59 @@ class Piano(EventLineInterface):
                 self.setNote(note, velocity)
                 
         elif command == MIDI_COMMANDS.NOTE_OFF.value:
-            note = midi[1] + self._transpose - self._noteOfsset
+            note = midi[1] + self._transpose - globalData.NOTE_OFFSET
             velocity = midi[2]
 
-            note = note + self._transpose - self._noteOfsset
+            #note = note + self._transpose - globalData.NOTE_OFFSET
             self.resetNote(note)
             
      
-    def setNote(self, note: int, velocity: int) -> None:
-        if note < 0 or note > len(self._PianoNotes):
+    def setNote(self, note_index: int, velocity: int) -> None:
+        if note_index < 0 or note_index > len(self._PianoNotes):
             return
 
-        print(f"Note ON: {note}, Velocity: {velocity}")
-        self._PianoNotes[note].pressed = True
-        self._PianoNotes[note].velocity = velocity
+        #print(f"Note ON: {note}, Velocity: {velocity}")
+        note = self._PianoNotes[note_index]
+        note.pressed = True
+        note.velocity = velocity
+        logging.debug(f"Note {note_index} pressed with velocity {velocity}")
+        
+        for led_index in note.LEDs_index:
+            self.turnOn_LED(self._PianoLEDs[led_index], velocity)
+            
+        #super().notifyEvent(EventData(note, EventType.NOTE_PRESSED))
     
     
-    def resetNote(self, note: int) -> None:
-        if note < 0 or note > len(self._PianoNotes):
+    
+    def resetNote(self, note_index: int) -> None:
+        if note_index < 0 or note_index > len(self._PianoNotes):
             return
         
-        print(f"Note OFF: {note}")
-        self._PianoNotes[note].pressed = False
-        self._PianoNotes[note].velocity = 0
+        #print(f"Note OFF: {note}")
+        note = self._PianoNotes[note_index]
+        note.pressed = False
+        note.velocity = 0
+        logging.debug(f"Note {note_index} reset")
+        #super().notifyEvent(EventData(note, EventType.NOTE_RELEASED))
         
-    def turnOnLed(self, led: int) -> None:
-        if led < 0 or led > len(self._PianoLEDs):
+    
+    def turnOff_LED(self, led: LED) -> None:
+        if led is None:
             return
+        
+        self._neopixel[led.index] = (0, 0, 0)
+        led.state = False
+        led.dissolvenceTime = 0.0
+        logging.debug(f"LED {led.index} turned off")
+        
 
-        self._PianoLEDs[led].state = True
+    def turnOn_LED(self, led: LED, velocity: int = 0) -> None:
+        if led is None:
+            return
         
+        color = (255, 0, 0)
+
+        self._neopixel[led.index] = color
+        led.state = True
+        led.dissolvenceTime = time.time() + globalData.LED_DISSOLVENCE_TIME
+        logging.debug(f"LED {led.index} turned on with color {color} and velocity {velocity}")

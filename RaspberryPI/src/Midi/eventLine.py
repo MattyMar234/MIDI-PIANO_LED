@@ -5,6 +5,8 @@ import threading
 
 class EventType(Enum):
     MIDI = auto()
+    NOTE_PRESSED = auto()
+    NOTE_REALEASED = auto()
     SETTING_CHANGE = auto()
     
 
