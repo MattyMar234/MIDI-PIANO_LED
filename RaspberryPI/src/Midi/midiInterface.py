@@ -6,6 +6,7 @@ import threading
 import rtmidi
 import time
 import mido
+import logging
 
 
 
@@ -73,7 +74,10 @@ class MidiInterface(EventLineInterface):
             return
         
         self._run_task = False
-        self._task_thread.join(2)
+        try:
+            self._task_thread.join(2.0)
+        except Exception as e:
+            logging.error(e)
         self._task_thread = None
         
     def _task_loop(self) -> None:
@@ -83,8 +87,7 @@ class MidiInterface(EventLineInterface):
             else:
                 self._write_loop()
         except Exception as e:
-            print(e)
-            
+            logging.error(e)
         finally:   
             self.stop()
         

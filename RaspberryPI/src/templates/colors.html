@@ -1,0 +1,17 @@
+{% include 'index.html' %}
+<div class="container mt-4">
+    <h2>Colori</h2>
+    <label>Seleziona un colore:</label>
+    <input type="color" id="colorPicker" value="{{ variables.color }}">
+    <button class="btn btn-primary mt-3" onclick="updateColor()">Salva Colore</button>
+</div>
+<script>
+    function updateColor() {
+        let color = document.getElementById("colorPicker").value;
+        fetch("/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ color: color })
+        });
+    }
+</script>

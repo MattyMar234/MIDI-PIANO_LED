@@ -18,17 +18,21 @@ import logging
 #logging.basicConfig(level=logging.DEBUG)
 
 log_messages = deque(maxlen=20)
-log_messages.append("cioooo1")
-log_messages.append("cioooo2")
+
 
 class WebServer(EventLineInterface):
     
     def __init__(self, host: str, port: int, folderName: str = 'templates'):
+        super().__init__()
         TEMPLATE_FOLDER = WebServer._find_templates_folder(folderName=folderName)
         
         self._app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
         self._app.route('/')(self.index)
         self._app.route('/update', methods=['POST'])(self.update)
+        self._app.route('/settings')(self.settings)
+        self._app.route('/colors')(self.colors)
+        self._app.route('/console')(self.console)
+        
         #self._app.add_url_rule('/update', 'update', self.update, methods=['POST'])
         self._app.route('/stop', methods=['GET'])(self.stopServer)
         self._app.route('/logs', methods=['GET'])(self.get_logs)
@@ -109,6 +113,18 @@ class WebServer(EventLineInterface):
         logging.debug("Page requested: 'index.html'")  
         return render_template('index.html', variables=self._variables)
     
+    def index(self):
+        return render_template('index.html')
+    
+    def settings(self):
+        return render_template('settings.html', variables=self._variables)
+    
+    def colors(self):
+        return render_template('colors.html', variables=self._variables)
+    
+    def console(self):
+        return render_template('console.html')
+    
     def get_logs(self):
         # Restituisce gli ultimi 100 messaggi
         return jsonify(list(log_messages))
@@ -120,7 +136,8 @@ class WebServer(EventLineInterface):
             for key, value in data.items():
                 if key in self._variables:
                     self._variables[key] = value
-                 
+            
+            logging.info(f"request.get_json: {data}")
             super().notifyEvent(EventData(data, EventType.SETTING_CHANGE)) 
         else:
             logging.debug("request.get_json is None")    

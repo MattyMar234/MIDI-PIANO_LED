@@ -2,9 +2,12 @@ from enum import Enum, auto
 from typing import Any, Dict, Final, List
 from Midi.lineObserver import LineObserver, EventData
 import threading
+import logging
 
 class EventType(Enum):
     MIDI = auto()
+    NOTE_PRESSED = auto()
+    NOTE_REALEASED = auto()
     SETTING_CHANGE = auto()
     
 
@@ -31,7 +34,7 @@ class EventLine:
             return False
         
         self._event_obsevers[eventType].append(observer)
-        print(f"Line: {self} | Observer {observer} added for event: {eventType}")   
+        logging.debug(f"Line: {self} | Observer {observer} added for event: {eventType}") 
         return True
         
     
@@ -40,7 +43,7 @@ class EventLine:
             return False
         
         self._event_obsevers[eventType].remove(observer)
-        print(f"Line: {self} | Observer {observer} removed for event: {eventType}")  
+        logging.debug(f"Line: {self} | Observer {observer} removed for event: {eventType}")  
         return True
         
     def removeAllEvents(self, observer: LineObserver) -> bool:
@@ -51,16 +54,19 @@ class EventLine:
     
     def notify(self, obs, event: EventData) -> bool:
         
-        def _task():
+        # def _task():
+        #     for observer in self._event_obsevers[event.eventType]:
+        #         if not(obs is None) and observer == obs:
+        #             continue
+        #         observer.handleEvent(event)
+        try:
+            logging.debug(f"Line: {self} | Notifying[{event}]")
+            # thread = threading.Thread(target=_task)
+            # thread.start()
             for observer in self._event_obsevers[event.eventType]:
                 if not(obs is None) and observer == obs:
                     continue
                 observer.handleEvent(event)
-        try:
-            print(f"Line: {self} | Notifying[{event}]")
-            thread = threading.Thread(target=_task)
-
-            thread.start()
             return True
         except Exception as e:
             print(e)

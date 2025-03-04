@@ -1,0 +1,16 @@
+{% include 'index.html' %}
+<div class="container mt-4">
+    <h2>Console Eventi Backend</h2>
+    <div id="console" class="border p-3" style="height: 300px; overflow-y: auto; background-color: #f8f9fa;"></div>
+</div>
+<script>
+    function loadLogs() {
+        fetch("/logs")
+            .then(response => response.json())
+            .then(data => {
+                let consoleDiv = document.getElementById("console");
+                consoleDiv.innerHTML = data.map(log => `<div>${log}</div>`).join("");
+            });
+    }
+    setInterval(loadLogs, 2000);
+</script>

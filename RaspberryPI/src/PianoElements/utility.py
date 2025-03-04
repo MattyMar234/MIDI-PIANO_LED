@@ -1,4 +1,5 @@
 
+_l = [0,0,1,1,2,3,3,4,4,5,5,6]
 
 def note_to_octave(node: int) -> int:
     return node // 12
@@ -7,14 +8,16 @@ def octave_note_number(note: int) -> int:
     return note % 12
 
 def white_note_of_octave(note: int) -> int:
-    note % 12
-    count: int = 0
+    # note % 12
+    # count: int = 0
     
-    for i in range(note):
-        if not is_altered(i):
-            count += 1
+    # for i in range(note):
+    #     if not is_altered(i):
+    #         count += 1
             
-    return count
+    # return count
+    ocatve_index = note % 12
+    return _l[ocatve_index]
     
 
 def is_altered(note: int) -> bool:
