@@ -135,6 +135,7 @@ class Piano(EventLineInterface):
             limit: float =  0.4#globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE + globalData.PIANO_WHITE_NOTE_LENGHT/3 if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT/3
             
             logging.info(f"Note {note} ({i}): [offset={positionOffset} | Altered={isAltered} | start={noteStart} | end={noteEnd} | octave={octave} | octave_index={octave_index}]")
+
             
             for j, led in enumerate(self._PianoLEDs):
                 LED_start = globalData.LED_LENGHT * j
