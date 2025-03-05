@@ -1,13 +1,65 @@
 {% include 'index.html' %}
 <div class="container mt-4">
     <h2>Impostazioni</h2>
-    {% for i in range(1, 11) %}
-        <label>Slider {{ i }}: <span id="val_slider{{ i }}">{{ variables["slider" ~ i] }}</span></label>
-        <input type="range" id="slider{{ i }}" min="0" max="100" value="{{ variables["slider" ~ i] }}" class="form-range">
-    {% endfor %}
+
+    <div id="sliders">
+        </div>
+
     <br>
-    <label>Testo 1:</label>
-    <input type="text" id="text1" value="{{ variables.text1 }}" class="form-control">
-    <label>Testo 2:</label>
-    <input type="text" id="text2" value="{{ variables.text2 }}" class="form-control">
+
+    <label for="text1">Testo 1:</label>
+    <input type="text" id="text1" class="form-control">
+
+    <label for="text2">Testo 2:</label>
+    <input type="text" id="text2" class="form-control">
+
+    <script>
+        // Funzione per creare gli slider dinamicamente
+        function createSliders() {
+            const slidersContainer = document.getElementById('sliders');
+            for (let i = 1; i <= 10; i++) {
+                const sliderDiv = document.createElement('div');
+                sliderDiv.innerHTML = `
+                    <label>Slider ${i}: <span id="val_slider${i}">50</span></label>
+                    <input type="range" id="slider${i}" min="0" max="100" value="50" class="form-range">
+                    <br>
+                `;
+                slidersContainer.appendChild(sliderDiv);
+            }
+        }
+
+        // Funzione per recuperare i valori dal backend e aggiornare gli slider
+        async function updateSliders() {
+            try {
+                const response = await fetch('/api/get_settings'); // Sostituisci '/api/settings' con l'endpoint corretto del tuo backend
+                const data = await response.json();
+
+                for (let i = 1; i <= 10; i++) {
+                    const slider = document.getElementById(`slider${i}`);
+                    const sliderValue = document.getElementById(`val_slider${i}`);
+                    slider.value = data[`slider${i}`];
+                    sliderValue.textContent = data[`slider${i}`];
+                }
+
+                document.getElementById('text1').value = data.text1;
+                document.getElementById('text2').value = data.text2;
+
+            } catch (error) {
+                console.error('Errore durante il recupero delle impostazioni:', error);
+            }
+        }
+
+        // Crea gli slider e aggiorna i valori al caricamento della pagina
+        createSliders();
+        updateSliders();
+
+        // Aggiungi event listener per aggiornare il valore visualizzato dello slider
+        for (let i = 1; i <= 10; i++) {
+            const slider = document.getElementById(`slider${i}`);
+            const sliderValue = document.getElementById(`val_slider${i}`);
+            slider.addEventListener('input', () => {
+                sliderValue.textContent = slider.value;
+            });
+        }
+    </script>
 </div>

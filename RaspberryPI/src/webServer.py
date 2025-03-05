@@ -1,5 +1,3 @@
-
-
 from collections import deque
 import signal
 import subprocess
@@ -14,6 +12,7 @@ from werkzeug.serving import run_simple
 from Midi.eventLineInterface import EventLineInterface
 from Midi.eventLine import EventData, EventLine, EventType
 import logging
+import globalData
 
 #logging.basicConfig(level=logging.DEBUG)
 
@@ -36,7 +35,8 @@ class WebServer(EventLineInterface):
         #self._app.add_url_rule('/update', 'update', self.update, methods=['POST'])
         self._app.route('/stop', methods=['GET'])(self.stopServer)
         self._app.route('/logs', methods=['GET'])(self.get_logs)
-        
+        self._app.route('/get_settings', methods=['GET'])(self.load_settings)
+
         self._PID = os.getpid()
         
         print(f"Template folder: {self._app.template_folder}")
@@ -44,11 +44,6 @@ class WebServer(EventLineInterface):
         self._host: int = host
         self._port: int = port
         
-        self._variables = {
-            "slider1": 50,
-            "slider2": 75,
-            "button": False
-        }
   
     
     @classmethod    
@@ -128,6 +123,14 @@ class WebServer(EventLineInterface):
     def get_logs(self):
         # Restituisce gli ultimi 100 messaggi
         return jsonify(list(log_messages))
+
+    def load_settings(self):
+
+        for i, dict in enumerate(globalData.Settings.Settings):
+            pass
+
+
+        return jsonify(success=True, variables=self._variables)
 
     def update(self):
         data = request.get_json(silent=True)

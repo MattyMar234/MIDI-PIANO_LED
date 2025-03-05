@@ -222,7 +222,7 @@ class Piano(EventLineInterface):
                         turnOff = False
                         break
                     
-                if turnOff and (time.time() - led.dissolvenceTime > globalData.LED_DISSOLVENCE_TIME):
+                if turnOff and (time.time() - led.dissolvenceTime > globalData.LED_DISSOLVENCE_TIME_DEFAULT):
                     self.turnOff_LED(led)
             # else:
             #     for note in led.Led_Notes:
@@ -410,5 +410,5 @@ class Piano(EventLineInterface):
         self._neopixel[led.index] = color
         self._update_leds = True
         led.state = True
-        led.dissolvenceTime = time.time() + globalData.LED_DISSOLVENCE_TIME
+        led.dissolvenceTime = time.time() + globalData.LED_DISSOLVENCE_TIME_DEFAULT
         logging.debug(f"LED {led.index} turned on with color {color} and velocity {velocity}")
