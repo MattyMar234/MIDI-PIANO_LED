@@ -2,6 +2,7 @@ from collections import deque
 import signal
 import subprocess
 import time
+from typing import Any, Dict
 from flask import Flask, render_template, request, jsonify
 import threading
 import os
@@ -126,11 +127,13 @@ class WebServer(EventLineInterface):
 
     def load_settings(self):
 
-        for i, dict in enumerate(globalData.Settings.Settings):
-            pass
+        data: Dict[str, Dict[str, Any]] = {}
+
+        for i, obj in enumerate(list(globalData.Settings)):
+            data[i] = obj.value.jsonData() 
 
 
-        return jsonify(success=True, variables=self._variables)
+        return jsonify(success=True, variables=data)
 
     def update(self):
         data = request.get_json(silent=True)

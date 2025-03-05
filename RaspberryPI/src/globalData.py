@@ -66,14 +66,17 @@ class SettingsData(Generic[T]):
 
 
 class Settings(Enum):
-    DISSOLVENZE = SettingsData[float]("dissolvenze", 0.010, 1, LED_DISSOLVENCE_TIME_DEFAULT)
-    BRIGHTNESS = SettingsData[float]("brightNess", 0.0, 1.0, DEFAULT_BRIGHTNESS_VALUE)
-    NOTE_SIZE = SettingsData[float]("note size", 0.0, 3.0, PIANO_WHITE_NOTE_LENGHT)
+    DISSOLVENZE = SettingsData[float]("Dissolvenze", 0.010, 1, LED_DISSOLVENCE_TIME_DEFAULT)
+    BRIGHTNESS = SettingsData[float]("Brightness", 0.0, 1.0, DEFAULT_BRIGHTNESS_VALUE)
+    NOTE_SIZE = SettingsData[float]("Note size", 0.0, 3.0, PIANO_WHITE_NOTE_LENGHT)
+    #LED_SIZE = 
+    
 
-data = {}
 
-for i, obj in enumerate(list(Settings)):
-    data[i] = obj.value.jsonData() 
+#data = {}
 
-print(data)
+# for i, obj in enumerate(list(Settings)):
+#     data[i] = obj.value.jsonData() 
+
+# print(data)
 
