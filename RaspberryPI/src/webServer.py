@@ -113,7 +113,7 @@ class WebServer(EventLineInterface):
         return render_template('index.html')
     
     def settings(self):
-        return render_template('settings.html', variables=self._variables)
+        return render_template('settings.html')#, variables=self._variables)
     
     def colors(self):
         return render_template('colors.html', variables=self._variables)

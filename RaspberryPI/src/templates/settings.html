@@ -2,8 +2,7 @@
 <div class="container mt-4">
     <h2>Impostazioni</h2>
 
-    <div id="sliders">
-        </div>
+    <div id="sliders"></div>
 
     <br>
 
@@ -15,51 +14,43 @@
 
     <script>
         // Funzione per creare gli slider dinamicamente
-        function createSliders() {
+        async function createSliders() {
             const slidersContainer = document.getElementById('sliders');
-            for (let i = 1; i <= 10; i++) {
-                const sliderDiv = document.createElement('div');
-                sliderDiv.innerHTML = `
-                    <label>Slider ${i}: <span id="val_slider${i}">50</span></label>
-                    <input type="range" id="slider${i}" min="0" max="100" value="50" class="form-range">
-                    <br>
-                `;
-                slidersContainer.appendChild(sliderDiv);
-            }
-        }
-
-        // Funzione per recuperare i valori dal backend e aggiornare gli slider
-        async function updateSliders() {
+            slidersContainer.innerHTML = ''; // Svuota il contenitore prima di aggiungere nuovi elementi
+            
             try {
-                const response = await fetch('/api/get_settings'); // Sostituisci '/api/settings' con l'endpoint corretto del tuo backend
-                const data = await response.json();
+                const response = await fetch('get_settings');
+                const data = await response.json(); // Non serve JSON.parse()
 
-                for (let i = 1; i <= 10; i++) {
-                    const slider = document.getElementById(`slider${i}`);
-                    const sliderValue = document.getElementById(`val_slider${i}`);
-                    slider.value = data[`slider${i}`];
-                    sliderValue.textContent = data[`slider${i}`];
+                console.log("Risposta ricevuta dal server:", data); // Debug
+
+                if (!data.variables || typeof data.variables !== 'object') {
+                    throw new Error("Formato JSON non valido");
                 }
 
-                document.getElementById('text1').value = data.text1;
-                document.getElementById('text2').value = data.text2;
 
+                Object.values(data.variables).forEach((variable, index) => {
+                    const sliderDiv = document.createElement('div');
+                    sliderDiv.innerHTML = `
+                        <label>${variable.name}: <span id="val_slider${index}">${variable.value}</span></label>
+                        <input type="range" id="slider${index}" min="${variable.minValue}" max="${variable.maxValue}" value="${variable.value}" step="0.01" class="form-range">
+                        <br>
+                    `;
+                    slidersContainer.appendChild(sliderDiv);
+
+                    const slider = document.getElementById(`slider${index}`);
+                    const sliderValue = document.getElementById(`val_slider${index}`);
+                    
+                    slider.addEventListener('input', () => {
+                        sliderValue.textContent = slider.value;
+                    });
+                });
             } catch (error) {
                 console.error('Errore durante il recupero delle impostazioni:', error);
             }
         }
 
-        // Crea gli slider e aggiorna i valori al caricamento della pagina
-        createSliders();
-        updateSliders();
-
-        // Aggiungi event listener per aggiornare il valore visualizzato dello slider
-        for (let i = 1; i <= 10; i++) {
-            const slider = document.getElementById(`slider${i}`);
-            const sliderValue = document.getElementById(`val_slider${i}`);
-            slider.addEventListener('input', () => {
-                sliderValue.textContent = slider.value;
-            });
-        }
+        // Crea gli slider al caricamento della pagina
+        window.onload = createSliders;
     </script>
 </div>
