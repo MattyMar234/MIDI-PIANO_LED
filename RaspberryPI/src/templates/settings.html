@@ -1,4 +1,3 @@
-{% include 'index.html' %}
 <div class="container mt-4">
     <h2>Impostazioni</h2>
 
@@ -28,14 +27,21 @@
                     throw new Error("Formato JSON non valido");
                 }
 
-
                 Object.values(data.variables).forEach((variable, index) => {
                     const sliderDiv = document.createElement('div');
                     sliderDiv.innerHTML = `
-                        <label>${variable.name}: <span id="val_slider${index}">${variable.value}</span></label>
-                        <input type="range" id="slider${index}" min="${variable.minValue}" max="${variable.maxValue}" value="${variable.value}" step="0.01" class="form-range">
+                        <h4 style="text-align: left;">${variable.name}</h4>
+                        <input type="range" id="slider${index}" min="${variable.minValue}" max="${variable.maxValue}" value="${variable.value}" step="0.01" class="form-range" style="width: 240px;">
+                        <span id="val_slider${index}">${variable.value}</div>
                         <br>
                     `;
+
+
+                    // <h4 style="text-align: left;">${variable.name}</h4>
+                    //     <input type="range" id="slider${index}" min="${variable.minValue}" max="${variable.maxValue}" value="${variable.value}" step="0.01" class="form-range" style="width: 140px;">
+                    //     <div style="text-align: center;"><span id="val_slider${index}">${variable.value}</span></div>
+                    //     <br>
+
                     slidersContainer.appendChild(sliderDiv);
 
                     const slider = document.getElementById(`slider${index}`);
