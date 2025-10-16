@@ -165,9 +165,11 @@ if __name__ == '__main__':
     
     line = EventLine()
     
-    server = WebServer('0.0.0.0', 5000)
+    print("Starting server...")
+    server = WebServer('0.0.0.0', 5001)
     server.OutputLine = line
     server.start()
+    print("server started")
     # time.sleep(5)
     # server.stop()
     
