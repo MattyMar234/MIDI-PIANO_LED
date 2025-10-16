@@ -10,13 +10,16 @@ import rtmidi
 import time
 import board
 import neopixel
-from PianoElements.piano import Piano
-from Midi.lineObserver import LineObserver
-from Midi.eventLine import EventLine, EventData, EventType
+
+
+
 from Midi.midiInterface import MidiInterface
 from webServer import WebServer
 import logging
+import asyncio
 
+from EventLine.eventLine import EventFactory, Event, EventData, EventLine
+from PianoElements.piano import PianoLED
 
 
 
@@ -43,26 +46,45 @@ def listen_port(midiin, port) -> None:
         print(e)
 
 
-def main() -> None:
+async def main() -> None:
     
     logging.info("Entering main loop. Press Control-C to exit.")
     
+    
+    
     #EVENT LINES
+    NotePressedEvent = EventFactory.createEventType("NOTE_PRESSED")
+    NoteReleasedEvent = EventFactory.createEventType("NOTE_RELEASED")
+    SettingChangeEvent = EventFactory.createEventType("SETTING_CHANGE")
+    
+    ColorChangeEvent = EventFactory.createEventType("COLOR_CHANGE")
+    changeEffectEvent = EventFactory.createEventType("CHANGE_EFFECT")
+    
     midiEventsLine = EventLine()
+    midiEventsLine.registerEvent(NotePressedEvent)
+    midiEventsLine.registerEvent(NoteReleasedEvent)
+    midiEventsLine.registerEvent(SettingChangeEvent)
+    
+    settingsLine = EventLine()
+    settingsLine.registerEvent(ColorChangeEvent)
+    settingsLine.registerEvent(changeEffectEvent)
     
     
     #-------DIPOSITIVI & CONNESSIONI-------#
     #piano
-    piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
+    piano = PianoLED(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
     piano.InputLine = midiEventsLine
-    piano.OutputLine = midiEventsLine
-    piano.listenEvent(EventType.MIDI)
-    piano.listenEvent(EventType.SETTING_CHANGE)
+    piano.OutputLine = None
+    
+    piano.listenEvent(NotePressedEvent)
+    piano.listenEvent(NoteReleasedEvent)
+    piano.listenEvent(SettingChangeEvent)
+
     
     #piano midi input
     pianoInterface = MidiInterface(MidiInterface.Mode.READ)
     pianoInterface.OutputLine = midiEventsLine
-    piano.listenEvent(EventType.SETTING_CHANGE)
+    piano.listenEvent(Event.SETTING_CHANGE)
 
     #midi output  
     # pianoInterface = MidiInterface(MidiInterface.Mode.WRITE)
@@ -74,8 +96,8 @@ def main() -> None:
     server = WebServer('0.0.0.0', 5000)
     server.OutputLine = midiEventsLine
     server.InputLine = midiEventsLine
-    piano.listenEvent(EventType.MIDI)
-    piano.listenEvent(EventType.SETTING_CHANGE)
+    piano.listenEvent(Event.MIDI)
+    piano.listenEvent(Event.SETTING_CHANGE)
     
     piano.start()
     server.start()
@@ -144,4 +166,6 @@ def main2() -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main()
+    asyncio.run(main())
+    
+    

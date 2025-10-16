@@ -1,6 +1,6 @@
-from Midi.eventLine import EventLine, EventType, EventData
-from Midi.eventLineInterface import EventLineInterface
-from Midi.lineObserver import LineObserver 
+from RaspberryPI.src.EventLine.eventLine import EventLine, Event, EventData
+from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
+from RaspberryPI.src.EventLine.lineObserver import LineObserver 
 from enum import Enum, auto
 import threading
 import rtmidi
@@ -100,7 +100,7 @@ class MidiInterface(EventLineInterface):
         while self._run_task:
             msg = midiin.get_message()
             if msg:
-                super().notifyEvent(EventData(msg, EventType.MIDI))
+                super().notifyEvent(EventData(msg, Event.MIDI))
             else:
                 time.sleep(0.01)
         

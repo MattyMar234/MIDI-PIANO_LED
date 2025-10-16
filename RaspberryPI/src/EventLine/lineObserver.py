@@ -1,14 +1,11 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Any
+import asyncio
 
-class EventData(Enum):
-    NOTE_ON = auto()
-    NOTE_OFF = auto()
-    CONTROL_CHANGE = auto()
+from EventLine.eventLine import EventData
 
 
-    
 
 
 class LineObserver(ABC):
@@ -17,5 +14,9 @@ class LineObserver(ABC):
     
     @abstractmethod
     def handleEvent(self, event: EventData):
+        pass
+    
+    @abstractmethod
+    async def async_handleEvent(self, event: EventData):
         pass
     
