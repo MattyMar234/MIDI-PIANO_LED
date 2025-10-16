@@ -3,9 +3,9 @@ import board
 import neopixel
 from typing import Any, Dict, List, Optional, Tuple, Union
 import threading
-from Midi.eventLineInterface import EventLineInterface
-from Midi.eventLine import EventType
-from Midi.lineObserver import LineObserver, EventData
+from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
+from RaspberryPI.src.EventLine.eventLine import Event
+from RaspberryPI.src.EventLine.lineObserver import LineObserver, EventData
 from PianoElements.utility import *
 import time
 from enum import Enum
@@ -54,7 +54,7 @@ class LED:
         return not self._state
 
 
-class Piano(EventLineInterface):
+class PianoLED(EventLineInterface):
     
     def __init__ (
         self, 
@@ -253,11 +253,11 @@ class Piano(EventLineInterface):
         #         pass
         
         
-        if event.eventType == EventType.MIDI:
+        if event.eventType == Event.MIDI:
             if self._run_task:
                 self._onMIDI_data_event(event.data[0])
             
-        elif event.eventType == EventType.SETTING_CHANGE:
+        elif event.eventType == Event.SETTING_CHANGE:
             self._onSettingChange(event.data)
         
         else:

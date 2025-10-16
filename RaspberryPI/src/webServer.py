@@ -10,8 +10,8 @@ import requests
 import platform
 from werkzeug.serving import run_simple
 
-from Midi.eventLineInterface import EventLineInterface
-from Midi.eventLine import EventData, EventLine, EventType
+from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
+from RaspberryPI.src.EventLine.eventLine import EventData, EventLine, Event
 import logging
 import globalData
 
@@ -144,7 +144,7 @@ class WebServer(EventLineInterface):
                     self._variables[key] = value
             
             logging.info(f"request.get_json: {data}")
-            super().notifyEvent(EventData(data, EventType.SETTING_CHANGE)) 
+            super().notifyEvent(EventData(data, Event.SETTING_CHANGE)) 
         else:
             logging.debug("request.get_json is None")    
         
