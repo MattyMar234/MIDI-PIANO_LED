@@ -1,8 +1,7 @@
 
 import asyncio
 import logging
-from EventLine.eventLine import EventData, EventLine, Event
-from EventLine.lineObserver import LineObserver
+from EventLine.eventLine import EventData, EventLine, Event, LineObserver
 
 
 class EventLineInterface(LineObserver):
@@ -18,33 +17,31 @@ class EventLineInterface(LineObserver):
     # GESTIONE LINEE
     # --------------------------
 
-    def addLine(self, line: EventLine, direction: str = "input") -> None:
-        """Aggiunge una linea di input o output."""
-        if direction == "input":
-            if line not in self._inputLines:
-                self._inputLines.append(line)
-        elif direction == "output":
-            if line not in self._outputLines:
-                self._outputLines.append(line)
-        else:
-            raise ValueError("direction deve essere 'input' o 'output'")
+    def addInputLine(self, line: EventLine) -> None:
+        """Aggiunge una linea di input"""
+        if line not in self._inputLines:
+            self._inputLines.append(line)
+    
+        
+    def addOutputLine(self, line: EventLine) -> None:
+        """Aggiunge una linea di output."""
+        if line not in self._outputLines:
+            self._outputLines.append(line)
 
-    def removeLine(self, line: EventLine, direction: str = "input") -> None:
-        """Rimuove una linea di input o output.  
-        Se è una linea di input, rimuove anche l’observer da tutti gli eventi."""
-        if direction == "input":
-            if line in self._inputLines:
-                try:
-                    line.removeAllObserverEvents(self)
-                except Exception as e:
-                    logging.error("Errore rimuovendo observer dagli eventi: %s", e)
-                self._inputLines.remove(line)
 
-        elif direction == "output":
-            if line in self._outputLines:
-                self._outputLines.remove(line)
-        else:
-            raise ValueError("direction deve essere 'input' o 'output'")
+    def removeInputLine(self, line: EventLine, direction: str = "input") -> None:
+        """Rimuove una linea di input"""
+        line.removeAllObserverEvents(self)
+        self._inputLines.remove(line)
+
+
+        
+    def removeOutputLine(self, line: EventLine, direction: str = "input") -> None:
+        """Rimuove una linea di output."""  
+        
+        if line in self._outputLines:
+            self._outputLines.remove(line)
+     
 
     # --------------------------
     # FUNZIONI EVENTI

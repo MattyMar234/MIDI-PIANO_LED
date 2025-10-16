@@ -1,18 +1,22 @@
 import asyncio
 from enum import Enum, auto
-from typing import Any, Dict, Final, List
-from RaspberryPI.src.EventLine.lineObserver import LineObserver
+from typing import Any, Dict, Final, List, Optional
 import threading
 import logging
 
+from abc import ABC, abstractmethod
 
-    
+
+
 
 class Event:
     
-    def __init__(self, name: str, observers: List[LineObserver] = []) -> None:
+    def __init__(self, name: str) -> None:
         self.__name: Final[str] = name
-        self.__observers: List[LineObserver] = observers
+        #self.__observers: List[LineObserver] = observers
+        
+    def __str__(self) -> str:
+        return self.__name
 
 
 class EventData:
@@ -25,6 +29,18 @@ class EventData:
         return f"Event: {self.eventType} | Data: {self.data}"
 
 
+class LineObserver(ABC):
+    def __init__(self):
+        pass
+    
+    @abstractmethod
+    def handleEvent(self, event: EventData):
+        pass
+    
+    @abstractmethod
+    async def async_handleEvent(self, event: EventData):
+        pass
+
 class EventFactory:
     
     __EventTypeCache: Dict[str, Event] = {}
@@ -35,10 +51,13 @@ class EventFactory:
             raise ValueError(f"EventType {name} already exists")
         
         name = name.upper()
-        return Event(name, [])
+        e = Event(name)
+        EventFactory.__EventTypeCache[name] = e
+        logging.info(f"EventFactory: Created EventType {name}")
+        return e
     
     @staticmethod
-    def getEventType(name: str) -> Event | None:
+    def getEventType(name: str) -> Optional[Event]:
         return EventFactory.__EventTypeCache[name.upper()]
 
 
@@ -46,8 +65,12 @@ class EventFactory:
 
 class EventLine:
     
-    def __init__(self) -> None:
+    def __init__(self, lineName: str = "") -> None:
         self._event_obsevers: Dict[Event, List[LineObserver]] = {}
+        self._lineName: str = lineName if lineName != "" else hex(id(self))
+    
+    def __str__ (self) -> str:
+        return f"EventLine@{self._lineName}"
     
     def getAvailableEvents(self) -> List[Event]:
         return list(self._event_obsevers.keys())
@@ -57,7 +80,7 @@ class EventLine:
             return False
         
         self._event_obsevers[eventName] = []
-        logging.debug(f"Line: {self} | Event {eventName} registered") 
+        logging.info(f"Line: {self} | Event {eventName} registered") 
         return True
     
     def unregisterEvent(self, event: Event) -> bool:  
@@ -70,7 +93,7 @@ class EventLine:
                 return False
             
         self._event_obsevers.pop(event)
-        logging.debug(f"Line: {self} | Event {event} unregistered") 
+        logging.info(f"Line: {self} | Event {event} unregistered") 
         return True
     
 
@@ -86,7 +109,7 @@ class EventLine:
             return False
         
         self._event_obsevers[event].append(observer)
-        logging.debug(f"Line: {self} | Observer {observer} added for event: {event}") 
+        logging.info(f"Line: {self} | Observer {observer} added for event: {event}") 
         return True
         
     
@@ -96,7 +119,7 @@ class EventLine:
             return False
         
         self._event_obsevers[event].remove(observer)
-        logging.debug(f"Line: {self} | Observer {observer} removed for event: {event}")  
+        logging.info(f"Line: {self} | Observer {observer} removed for event: {event}")  
         return True
         
     def removeAllObserverEvents(self, observer: LineObserver) -> bool:
@@ -112,7 +135,7 @@ class EventLine:
     def notify(self, obs, event: EventData) -> bool:
          
         try:
-            logging.debug(f"Line: {self} | Notifying[{event}]")
+            logging.info(f"Line: {self} | Notifying[{event}]")
             for observer in self._event_obsevers[event.eventType]:
                 if not(obs is None) and observer == obs:
                     continue

@@ -10,8 +10,8 @@ import requests
 import platform
 from werkzeug.serving import run_simple
 
-from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
-from RaspberryPI.src.EventLine.eventLine import EventData, EventLine, Event
+from EventLine.eventLineInterface import EventLineInterface
+from EventLine.eventLine import EventData, EventLine, Event
 import logging
 import globalData
 

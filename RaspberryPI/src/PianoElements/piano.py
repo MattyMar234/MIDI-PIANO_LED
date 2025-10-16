@@ -3,14 +3,14 @@ import board
 import neopixel
 from typing import Any, Dict, List, Optional, Tuple, Union
 import threading
-from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
-from RaspberryPI.src.EventLine.eventLine import Event
-from RaspberryPI.src.EventLine.lineObserver import LineObserver, EventData
-from PianoElements.utility import *
 import time
 from enum import Enum
 import logging
 
+
+from EventLine.eventLineInterface import EventLineInterface
+from EventLine.eventLine import Event, LineObserver, EventData
+from PianoElements.utility import *
 
 class MIDI_COMMANDS(Enum):
     NOTE_ON = 0x09
@@ -98,6 +98,10 @@ class PianoLED(EventLineInterface):
             "brightness" : self.setBrightness,
             "animation" : self.setAnimation
         }
+        
+        # ------ Events Name -----
+        self._eventToFunction: Dict[Event, callable] = {}
+        self._MidiDataEvent: Optional[Event] = None
 
         #self._noteOfsset: int = note_number - start_note
         
@@ -134,7 +138,7 @@ class PianoLED(EventLineInterface):
             noteEnd:float = noteStart + (globalData.PIANO_BLACK_NOTE_LENGHT if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT)
             limit: float =  0.4#globalData.BLACK_NOTE_OFFSET_FROM_WHITE_NOTE + globalData.PIANO_WHITE_NOTE_LENGHT/3 if isAltered else globalData.PIANO_WHITE_NOTE_LENGHT/3
             
-            logging.info(f"Note {note} ({i}): [offset={positionOffset} | Altered={isAltered} | start={noteStart} | end={noteEnd} | octave={octave} | octave_index={octave_index}]")
+            #logging.info(f"Note {note} ({i}): [offset={positionOffset} | Altered={isAltered} | start={noteStart} | end={noteEnd} | octave={octave} | octave_index={octave_index}]")
 
             
             for j, led in enumerate(self._PianoLEDs):
@@ -147,14 +151,29 @@ class PianoLED(EventLineInterface):
                 b: bool = noteStart - limit <= (LED_end) <= noteEnd + limit
                 
                 if a or b:
-                    logging.info(f"LED {j}: [start={LED_start} | end={LED_end} assigned to NOTE {note}]")
+                    #logging.info(f"LED {j}: [start={LED_start} | end={LED_end} assigned to NOTE {note}]")
                     led.Led_Notes.append(self._PianoNotes[i])
                     self._PianoNotes[i].LEDs_index.append(j)
             
-            logging.info("")   
+            #logging.info("")   
             
     def __del__(self) -> None:
         self.stop()
+        
+    # ---- gestione eventi ----
+    def setMidiDataEvent(self, event: Optional[Event]) -> None:
+        if event is not None and event not in self._eventToFunction:
+            self._MidiDataEvent = event
+            self._eventToFunction[event] = self._onMIDI_data_event
+            logging.info(f"Piano-MIDI-Data Event set on event: {event}") 
+        
+        elif event is None and self._MidiDataEvent is not None:
+            del self._eventToFunction[self._MidiDataEvent]
+            self._MidiDataEvent = None
+            logging.info("MIDI Data Event removed")
+    
+    
+    # ---- Funzioni principali ----
         
         
     def _syncronized(funtion):
@@ -241,28 +260,25 @@ class PianoLED(EventLineInterface):
   
     
     def handleEvent(self, event: EventData):
-        # match event.type:
-        #     case EventType.MIDI:
-        #         if self._run_task:
-        #             self._onMIDI_data_event(event.data[0])
-            
-        #     case EventType.SETTING_CHANGE:
-        #         pass
-            
-        #     case _ :
-        #         pass
+        print(f"Piano received event: {event.eventType} from {event.source}")
+        if event is not None and event.eventType in self._eventToFunction:
+            print(f"Handling event: {event.eventType}")
+            self._eventToFunction[event.eventType](event)
+  
+       
         
-        
-        if event.eventType == Event.MIDI:
-            if self._run_task:
-                self._onMIDI_data_event(event.data[0])
+        # if event.eventType == Event.MIDI:
+        #     if self._run_task:
+        #         self._onMIDI_data_event(event.data[0])
             
-        elif event.eventType == Event.SETTING_CHANGE:
-            self._onSettingChange(event.data)
+        # elif event.eventType == Event.SETTING_CHANGE:
+        #     self._onSettingChange(event.data)
         
-        else:
-            pass
+        # else:
+        #     pass
     
+    async def async_handleEvent(self, event: EventData):
+        pass
     
     def _onSettingChange(self, setting: Dict[str, Any]) -> None:
         logging.debug(f"Setting changed: {setting}")
@@ -325,8 +341,8 @@ class PianoLED(EventLineInterface):
         pass
     
     @_syncronized_buffer
-    def _onMIDI_data_event(self, midiData: List[int]) -> None:
-        self._event_buffer.append(midiData)
+    def _onMIDI_data_event(self, midiData: List[List[int]]) -> None:
+        self._event_buffer.append(midiData[0])
     
     @_syncronized_buffer  
     def _clear_events_buffer(self) -> None: 

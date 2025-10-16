@@ -1,14 +1,13 @@
-from RaspberryPI.src.EventLine.eventLine import EventLine, Event, EventData
-from RaspberryPI.src.EventLine.eventLineInterface import EventLineInterface
-from RaspberryPI.src.EventLine.lineObserver import LineObserver 
 from enum import Enum, auto
 import threading
+from typing import Optional
 import rtmidi
 import time
 import mido
 import logging
 
-
+from EventLine.eventLine import EventLine, Event, EventData, LineObserver
+from EventLine.eventLineInterface import EventLineInterface
 
 class MidiInterface(EventLineInterface):
     
@@ -22,7 +21,7 @@ class MidiInterface(EventLineInterface):
         available_ports = midiin.get_ports()
         return available_ports
     
-    def __init__(self, mode: Mode, interface_name: str = ""):
+    def __init__(self, mode: Mode, interface_name: str = "", midi_channel: int = 0, midiDataEvent: Optional[Event] = None) -> None:
         super().__init__()
 
 
@@ -32,6 +31,10 @@ class MidiInterface(EventLineInterface):
         self._task_thread: threading.Thread | None = None
         self._run_task: bool = False
         self._buffer = []
+        self._midi_channel = midi_channel
+        self._midiDataEvent = midiDataEvent
+        
+         # ------ Interface Name -----
         
         if interface_name == "":
             interface_name = self.__hash__()
@@ -49,6 +52,9 @@ class MidiInterface(EventLineInterface):
     def handleEvent(self, event: EventData) -> None:
         if self._mode == MidiInterface.Mode.WRITE:
             self._buffer.append(event)
+    
+    async def async_handleEvent(self, event: EventData):
+        pass
     
     def isRunning(self) -> bool:
         return self._task_thread != None
@@ -93,14 +99,15 @@ class MidiInterface(EventLineInterface):
         
         
     def _read_loop(self) -> None:
-        print(f"Midi interface {self._interface_name} start reading on port {self._port}")
+        logging.info(f"Midi interface {self._interface_name} start reading on port {self._port}")
         
         midiin = rtmidi.MidiIn()
         midiin.open_port(self._port)
         while self._run_task:
             msg = midiin.get_message()
             if msg:
-                super().notifyEvent(EventData(msg, Event.MIDI))
+                if self._midiDataEvent is not None:
+                    super().notifyEvent(EventData(msg, self._midiDataEvent))
             else:
                 time.sleep(0.01)
         
