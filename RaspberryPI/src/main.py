@@ -9,15 +9,14 @@ import rtmidi
 # import mido
 import time
 import board
+import digitalio
 import neopixel
-
-
-
-from Midi.midiInterface import MidiInterface
-#from webServer import WebServer
+import argparse
 import logging
 import asyncio
 
+#from webServer import WebServer
+from Midi.midiInterface import MidiInterface
 from EventLine.eventLine import EventFactory, Event, EventData, EventLine
 from PianoElements.piano import PianoLED
 
@@ -170,9 +169,105 @@ def main2() -> None:
     # time.sleep(4)
     # piano.stop()
     
+def test() -> None:
+    """
+    Funzione di test per far lampeggiare un GPIO a 2 Hz.
+    """
+    
+    GPIOs = [board.D18]
+    leds = []
+    
+    logging.info(f"Avvio del test di lampeggio sui GPIO {GPIOs} a 2 Hz. Premere Ctrl+C per uscire.")
+    
+    
+    # Configura il pin come output digitale
+    for LED_PIN in GPIOs:
+        try:
+            led = digitalio.DigitalInOut(LED_PIN)
+            led.direction = digitalio.Direction.OUTPUT
+            leds.append(led)     
+        except Exception as e:
+            logging.error(f"Impossibile inizializzare il pin GPIO {LED_PIN}. Errore: {e}")
+            
+    if leds == []:
+        logging.error("Nessun GPIO valido trovato. Uscita dal test.")
+        return
+    
+    # 2 Hz = 2 cicli al secondo = 1 ciclo ogni 0.5 secondi
+    # 0.25s acceso, 0.25s spento
+    period = 0.5
+    on_time = period / 2
+    
+    try:
+        while True:  
+            for led in leds:
+                led.value = True
+            
+            time.sleep(on_time)
+            
+            for led in leds:
+                led.value = False
+            
+            time.sleep(on_time)
+            
+    except KeyboardInterrupt:
+        logging.info("Test interrotto dall'utente.")
+    finally:
+        # Assicuriamoci che il pin sia spento all'uscita
+        logging.info(f"Spegnimento del pin...")
+        for led in leds:
+            led.value = False
+            led.deinit()
+        
+        
+
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)
-    asyncio.run(main())
-    #sudo python3 /home/matty/Programs/MIDI-PIANO_LED/RaspberryPI/src/main.py
+
+    # Creazione del parser per gli argomenti da riga di comando
+    parser = argparse.ArgumentParser(description="Controller LED per Piano con interfaccia MIDI e Web.")
     
+    functions = {
+        "main": lambda: asyncio.run(main()),
+        "test": test
+    }
+
+    # Argomento per selezionare la funzione da eseguire
+    parser.add_argument(
+        '--function', 
+        type=str, 
+        choices=['main', 'test'], 
+        default='main',
+        help="Seleziona la funzione da avviare: 'main' (default) per l'applicazione completa, 'test' per il test dei GPIO."
+    )
+
+    # Argomento per selezionare il livello di logging
+    parser.add_argument(
+        '--log-level', 
+        type=str, 
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], 
+        default='INFO',
+        help="Imposta il livello di logging (default: INFO)."
+    )
+
+    # Esegui il parsing degli argomenti
+    args = parser.parse_args()
+
+    # Configura il logging in base all'argomento fornito
+    # Usiamo getattr per convertire la stringa in una costante del modulo logging
+    logging.basicConfig(level=getattr(logging, args.log_level.upper()))
+
+    logging.info(f"Funzione selezionata: {args.function}")
+    logging.info(f"Livello di logging impostato a: {args.log_level.upper()}")
+
+    # Avvia la funzione corretta in base all'argomento
+    # if args.function == 'main':
+    #     try:
+    #         asyncio.run(main())
+    #     except KeyboardInterrupt:
+    #         logging.info("Programma principale interrotto.")
+    # elif args.function == 'test':
+    #     test()
+    
+    functions[args.function]()
+
