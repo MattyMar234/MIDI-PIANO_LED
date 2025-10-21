@@ -8,8 +8,9 @@ import logging
 
 from EventLine.eventLine import EventLine, Event, EventData, LineObserver
 from EventLine.eventLineInterface import EventLineInterface
+from Utility.multiProcessingWorker import MultiprocessingWorker
 
-class MidiInterface(EventLineInterface):
+class MidiInterface(EventLineInterface, MultiprocessingWorker):
     
     class Mode(Enum):
         READ = auto()
@@ -21,104 +22,75 @@ class MidiInterface(EventLineInterface):
         available_ports = midiin.get_ports()
         return available_ports
     
-    def __init__(self, mode: Mode, interface_name: str = "", midi_channel: int = 0, midiDataEvent: Optional[Event] = None) -> None:
-        super().__init__()
+    def __init__(self, mode: Mode, interface_name: Optional[str] = None, midi_channel: int = 0, port: Optional[int] = None, sendMidiDataEvent: Optional[Event] = None, reciveMidiDataEvent: Optional[Event] = None) -> None:
+        EventLineInterface.__init__(self)
+        MultiprocessingWorker.__init__(self, interface_name)
 
-
-        self._port: int | None = None
-        self._mode = mode
-        self._lock = threading.Lock()
-        self._task_thread: threading.Thread | None = None
-        self._run_task: bool = False
-        self._buffer = []
-        self._midi_channel = midi_channel
-        self._midiDataEvent = midiDataEvent
+        self._port: Optional[int] = None
+        self._mode: MidiInterface.Mode = mode
+        self._midi_channel: int = midi_channel
+        self._sendMidiDataEvent: Optional[Event] = sendMidiDataEvent
+        self._reciveMidiDataEvent: Optional[Event] = reciveMidiDataEvent
         
-         # ------ Interface Name -----
+    def setPort(self, port: int) -> None:
+        self._port = port
         
-        if interface_name == "":
-            interface_name = self.__hash__()
+    def setSendMidiDataEvent(self, midiDataEvent: Event) -> None:
+        self._sendMidiDataEvent = midiDataEvent
+        
+    def setReciveMidiDataEvent(self, midiDataEvent: Event) -> None:
+        self._reciveMidiDataEvent = midiDataEvent
     
-        self._interface_name = interface_name
-    
-    
-    def _syncronized(funtion):
-        def wrapper(self, *args, **kwargs):
-            with self._lock:
-                funtion(self, *args, **kwargs)
-        return wrapper 
-   
-    
-    def handleEvent(self, event: EventData) -> None:
-        if self._mode == MidiInterface.Mode.WRITE:
-            self._buffer.append(event)
     
     async def async_handleEvent(self, event: EventData):
         pass
+
     
-    def isRunning(self) -> bool:
-        return self._task_thread != None
+   
     
-    @_syncronized
-    def start(self, port) -> None:
-        self._port = port
         
-        if self._task_thread != None:
-            return
-        
-        try:
-            self._run_task = True
-            self._task_thread = threading.Thread(target=self._task_loop)
-            self._task_thread.start()
-        except Exception as e:
-            self._run_task = False
-            self._task_thread = None
-        
-    @_syncronized   
-    def stop(self) -> None:
-        if self._task_thread == None:
-            return
-        
-        self._run_task = False
-        try:
-            self._task_thread.join(2.0)
-        except Exception as e:
-            logging.error(e)
-        self._task_thread = None
-        
-    def _task_loop(self) -> None:
+    def worker_loop_function(self) -> None:
         try:
             if self._mode == MidiInterface.Mode.READ:
                 self._read_loop()
             else:
                 self._write_loop()
         except Exception as e:
-            logging.error(e)
+            raise e
         finally:   
             self.stop()
+            
+
+    def handleEvent(self, event: EventData) -> None:
+        pass
         
         
     def _read_loop(self) -> None:
-        logging.info(f"Midi interface {self._interface_name} start reading on port {self._port}")
-        
+
+
+        #se non so che evento mandare aspetto un po
+        while self._sendMidiDataEvent is None or self._port is None:
+            if self._port is None:
+                logging.warning(f"Midi interface {self._worker_name} has no port set, waiting...")
+            if self._sendMidiDataEvent is None:
+                logging.warning(f"Midi interface {self._worker_name} has no midiDataEvent set, waiting...")
+            time.sleep(0.800)
+       
+        logging.info(f"Midi interface {self._worker_name} connected to port {self._port}, starting read loop")
         midiin = rtmidi.MidiIn()
         midiin.open_port(self._port)
         msg = None
         
-        while self._run_task:
-            
-            if self._midiDataEvent is None:
-                time.sleep(0.200)
-                continue
+        while self._running.is_set() and self._sendMidiDataEvent is not None:
             
             msg = midiin.get_message()
             
             if msg is not None:
                 while msg:
-                    self.notifyEvent(EventData(msg, self._midiDataEvent), as_thread=True)
+                    self.notifyEvent(EventData(msg, self._sendMidiDataEvent), as_thread=True)
                     msg = midiin.get_message()
             else:
-                time.sleep(0.001)
+                time.sleep(0.002)
                 
         
             

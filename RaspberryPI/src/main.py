@@ -87,8 +87,9 @@ async def main() -> None:
     piano.start()
     
     #piano midi input
-    pianoInterface = MidiInterface(MidiInterface.Mode.READ, "PianoMIDI", 0, MidiDataEvent)
+    pianoInterface = MidiInterface(MidiInterface.Mode.READ, "Piano-MIDI-Interface")
     pianoInterface.addOutputLine(midiEventsLine)
+    pianoInterface.setSendMidiDataEvent(MidiDataEvent)
     
 
 
@@ -141,33 +142,13 @@ async def main() -> None:
                 for i, port in enumerate(ports):
                     if globalData.PIANO_PORT_NAME in port:
                         #print(f"Porta {i} selezionata: {port}")
-                        pianoInterface.start(i)
+                        pianoInterface.setPort(i)
+                        pianoInterface.start()
                         break
             
             time.sleep(2)
         
 
-def main2() -> None:
-    pass
-    # leds = neopixel.NeoPixel(board.D18, 70, brightness=0.2)
-    # leds.fill((0, 0, 0))
-    
-    # midiLine = EventLine()
-    # piano = Piano(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
-    # pianoInterface = MidiInterface(mode=Mode.READ, midiLine=midiLine)
-    
-    # midiLine.addObserver(piano)
-    # midiLine.addObserver(pianoInterface)
-    
-    # midiin = rtmidi.MidiIn()
-    # available_ports = midiin.get_ports()
-  
-    # pianoInterface.start(0)
-    
-    
-    # piano.start()
-    # time.sleep(4)
-    # piano.stop()
     
 def test() -> None:
     """
@@ -254,20 +235,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Configura il logging in base all'argomento fornito
-    # Usiamo getattr per convertire la stringa in una costante del modulo logging
     logging.basicConfig(level=getattr(logging, args.log_level.upper()))
-
-    logging.info(f"Funzione selezionata: {args.function}")
     logging.info(f"Livello di logging impostato a: {args.log_level.upper()}")
-
-    # Avvia la funzione corretta in base all'argomento
-    # if args.function == 'main':
-    #     try:
-    #         asyncio.run(main())
-    #     except KeyboardInterrupt:
-    #         logging.info("Programma principale interrotto.")
-    # elif args.function == 'test':
-    #     test()
     
+    logging.info(f"Funzione selezionata: {args.function}")
     functions[args.function]()
 

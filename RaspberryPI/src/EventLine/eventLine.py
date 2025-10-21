@@ -37,9 +37,9 @@ class LineObserver(ABC):
     def handleEvent(self, event: EventData):
         pass
     
-    @abstractmethod
-    async def async_handleEvent(self, event: EventData):
-        pass
+    # @abstractmethod
+    # async def async_handleEvent(self, event: EventData):
+    #     pass
 
 class EventFactory:
     
