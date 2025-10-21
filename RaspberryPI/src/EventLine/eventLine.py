@@ -80,7 +80,7 @@ class EventLine:
             return False
         
         self._event_obsevers[eventName] = []
-        logging.info(f"Line: {self} | Event {eventName} registered") 
+        logging.info(f"Line: {self.__str__()} | Event {eventName} registered") 
         return True
     
     def unregisterEvent(self, event: Event) -> bool:  
@@ -89,11 +89,11 @@ class EventLine:
         
         for observer in self._event_obsevers[event]:
             if not self.removeObserver(observer, event):
-                logging.error(f"Line: {self} | Failed to remove observer {observer} from event {event} during event unregistration")
+                logging.error(f"Line: {self.__str__()} | Failed to remove observer {observer} from event {event} during event unregistration")
                 return False
             
         self._event_obsevers.pop(event)
-        logging.info(f"Line: {self} | Event {event} unregistered") 
+        logging.info(f"Line: {self.__str__()} | Event {event} unregistered") 
         return True
     
 
@@ -109,7 +109,7 @@ class EventLine:
             return False
         
         self._event_obsevers[event].append(observer)
-        logging.info(f"Line: {self} | Observer {observer} added for event: {event}") 
+        logging.info(f"Line: {self.__str__()} | Observer {observer} added for event: {event}") 
         return True
         
     
@@ -119,35 +119,39 @@ class EventLine:
             return False
         
         self._event_obsevers[event].remove(observer)
-        logging.info(f"Line: {self} | Observer {observer} removed for event: {event}")  
+        logging.info(f"Line: {self.__str__()} | Observer {observer} removed for event: {event}")  
         return True
         
-    def removeAllObserverEvents(self, observer: LineObserver) -> bool:
+    def removeAllObservedEvents(self, observer: LineObserver) -> bool:
         for event in self._event_obsevers:
             if observer in self._event_obsevers[event]:
                 if not self.removeObserver(observer, event):
-                    logging.error(f"Line: {self} | Failed to remove observer {observer} from event {event} during removeAllObserverEvents")
+                    logging.error(f"Line: {self.__str__()} | Failed to remove observer {observer} from event {event} during removeAllObserverEvents")
                     return False
         
         return True
     
     
     def notify(self, obs, event: EventData) -> bool:
-         
         try:
-            logging.info(f"Line: {self} | Notifying[{event}]")
-            for observer in self._event_obsevers[event.eventType]:
+            logging.info(f"Line: {self.__str__()} | Notifying[{event}]")
+
+            for observer in self._event_obsevers.get(event.eventType, []):
                 if not(obs is None) and observer == obs:
                     continue
                 observer.handleEvent(event)
             return True
         except Exception as e:
-            logging.error(e)
+            logging.error("Errore in notify: %s", e, exc_info=True)
             return False
+        
         
     async def async_notify(self, obs, event: EventData, only_async_func: bool = False) -> bool:
         try:
+            logging.info(f"Line: {self.__str__()} | Notifying[{event}]")
             observers = self._event_obsevers.get(event.eventType, [])
+
+            #print(f"Observers for event {event.eventType}: {observers}")
 
             tasks = [
                 s.handleEvent(event) if asyncio.iscoroutinefunction(s.handleEvent) 

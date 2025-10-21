@@ -103,13 +103,23 @@ class MidiInterface(EventLineInterface):
         
         midiin = rtmidi.MidiIn()
         midiin.open_port(self._port)
+        msg = None
+        
         while self._run_task:
+            
+            if self._midiDataEvent is None:
+                time.sleep(0.200)
+                continue
+            
             msg = midiin.get_message()
-            if msg:
-                if self._midiDataEvent is not None:
-                    super().notifyEvent(EventData(msg, self._midiDataEvent))
+            
+            if msg is not None:
+                while msg:
+                    self.notifyEvent(EventData(msg, self._midiDataEvent), as_thread=True)
+                    msg = midiin.get_message()
             else:
-                time.sleep(0.01)
+                time.sleep(0.001)
+                
         
             
         

@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from EventLine.eventLine import EventData, EventLine, Event, LineObserver
-
+import threading
 
 class EventLineInterface(LineObserver):
     
@@ -12,8 +12,13 @@ class EventLineInterface(LineObserver):
         
         self._inputLines: list[EventLine] = []
         self._outputLines: list[EventLine] = []
+        
+ 
+    def start_background_loop(self, loop):
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
 
-     # --------------------------
+    # --------------------------
     # GESTIONE LINEE
     # --------------------------
 
@@ -47,41 +52,56 @@ class EventLineInterface(LineObserver):
     # FUNZIONI EVENTI
     # --------------------------
     
-    def listenEvent(self, event: Event,  line: EventLine) -> None:
+    def listenEvent(self, event: Event,  line: EventLine) -> True:
         """Registra l'interfaccia come observer di un certo evento su tutte le linee di input."""
-        # if self._inputLine is None: return
-        # self._inputLine.addObserver(self, eventType)
+       
+        assert isinstance(event, Event), f"Il parametro event deve essere di tipo Event. Passato: {type(event)}"
+        assert isinstance(line, EventLine), f"Il parametro line deve essere di tipo EventLine. Passato: {type(event)}"
+       
         for line in self._inputLines:
             if event in line.getAvailableEvents():
                 line.addObserver(self, event)
+                logging.info(f"{self} ora ascolta l'evento {event} sulla linea {line}")
+                return True
+        
+        logging.warning(f"Nessuna linea di input disponibile per l'evento {event}")
+        return False
         
     def ignoreEvent(self, event: Event, line: EventLine) -> None:
-        # if self._inputLine is None: return
-        # self._inputLine.removeObserver(self, eventType)
+        """Rimuove l'interfaccia come observer di un certo evento su tutte le linee di input."""
+        
+        assert type(event) is type(Event), "Il parametro event deve essere di tipo Event"
+        assert type(line) is type(EventLine), "Il parametro line deve essere di tipo EventLine"
+       
         
         for line in self._inputLines:
             if event in line.getAvailableEvents():
                 line.removeObserver(self, event)
     
-    def notifyEvent(self, event: EventData) -> bool:
-        """Invia un evento a tutte le linee di output in modo sincrono."""
+    def notifyEvent(self, event: EventData, as_thread: bool = True, async_mode: bool = False) -> bool:
+        """Invia un evento a tutte le linee di output"""
+        
         if not self._outputLines:
             logging.error("Nessuna linea di output impostata")
             return False
-
+        
+        
         for line in self._outputLines:
-            line.notify(self, event)
+            if not as_thread and not async_mode:
+                line.notify(self, event)
+                
+            elif not as_thread and async_mode:
+                asyncio.run(line.async_notify(self, event))
+            
+            elif as_thread and not async_mode:
+                threading.Thread(target=lambda: line.notify(self, event), daemon=True).start()
+                
+            else:
+                threading.Thread(target=lambda: asyncio.run(line.async_notify(self, event)), daemon=True).start()
+
+        
         return True
     
-    def asyncronous_notifyEvent(self, event: EventData) -> bool:
-        """Invia un evento a tutte le linee di output in modo asincrono."""
-        if not self._outputLines:
-            logging.error("Nessuna linea di output impostata")
-            return False
-
-        for line in self._outputLines:
-            asyncio.create_task(line.async_notify(self, event))
-        return True
     
     
     # --------------------------

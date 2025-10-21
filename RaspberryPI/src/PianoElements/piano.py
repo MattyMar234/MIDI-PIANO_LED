@@ -6,11 +6,13 @@ import threading
 import time
 from enum import Enum
 import logging
-
+import multiprocessing
 
 from EventLine.eventLineInterface import EventLineInterface
 from EventLine.eventLine import Event, LineObserver, EventData
 from PianoElements.utility import *
+from Utility.multiProcessingWorker import MultiprocessingWorker
+
 
 class MIDI_COMMANDS(Enum):
     NOTE_ON = 0x09
@@ -54,7 +56,7 @@ class LED:
         return not self._state
 
 
-class PianoLED(EventLineInterface):
+class PianoLED(EventLineInterface, MultiprocessingWorker):
     
     def __init__ (
         self, 
@@ -67,41 +69,52 @@ class PianoLED(EventLineInterface):
         transpose: int = 0,
         brightness: float = 0.2
     ) -> None:
-        super().__init__()
-        
         
         if note_number < start_note or note_number > end_note:
             raise ValueError("Note number is out of range")
         
-        self._buffer_lock = threading.Lock()
+        EventLineInterface.__init__(self)
+        MultiprocessingWorker.__init__(self)
+
+        
+        #------ Sincronization variables and buffer ------
         self._settings_lock = threading.Lock()
-        self._event_buffer: List[int] = list()
-        self._task_thread: threading.Thread | None = None
-        self._run_task: bool = False
+        self._currentEvent: Optional[EventData] = None
         
+        # ------ Events Name -----
+        self._eventToFunction: Dict[Event, callable] = {}
+        self._MidiDataEvent: Optional[Event] = None
         
+        # ------ Piano parametrers ------
         self._noteNumber: int = note_number
         self._neoPixel_number: int = neoPixel_number
-        self._brightness: float = brightness
         self._dataPin = LED_strip_dataPin #board.D18
         self._neopixel = neopixel.NeoPixel(self._dataPin, self._neoPixel_number, brightness=brightness)
-        self._transpose: int = transpose
-        self._update_leds: bool = False
-        self._fixed_color: Tuple[int, int, int] = (255, 0, 0)
-        
         self._PianoNotes: List[Note] = list()
         self._PianoLEDs: List[LED] = list()
         self._startNode_number: int = start_note
         self._endNode_number: int = end_note
+        
+        
+        # ------ Settings ------
+        self._brightness: float = brightness
+        self._transpose: int = transpose
+        
+        # ------ LED Update & Animations ----- 
+        self._update_leds: bool = False
+        self._fixed_color: Tuple[int, int, int] = (255, 0, 0)
+        self.lastUpdate: float = 0.0
+        self._notePressed: List[int] = list()
+        
         self._keyOption_to_function = {
             "color" : self.setColor,
             "brightness" : self.setBrightness,
             "animation" : self.setAnimation
         }
         
-        # ------ Events Name -----
-        self._eventToFunction: Dict[Event, callable] = {}
-        self._MidiDataEvent: Optional[Event] = None
+        
+        
+        
 
         #self._noteOfsset: int = note_number - start_note
         
@@ -157,14 +170,16 @@ class PianoLED(EventLineInterface):
             
             #logging.info("")   
             
-    def __del__(self) -> None:
-        self.stop()
+        for led in self._PianoLEDs:
+            self.turnOff_LED(led)
         
     # ---- gestione eventi ----
     def setMidiDataEvent(self, event: Optional[Event]) -> None:
+        assert event is None or isinstance(event, Event), "Event must be of type Event or None"
+        
         if event is not None and event not in self._eventToFunction:
             self._MidiDataEvent = event
-            self._eventToFunction[event] = self._onMIDI_data_event
+            self._eventToFunction[event.__str__()] = self._onMIDI_data_event
             logging.info(f"Piano-MIDI-Data Event set on event: {event}") 
         
         elif event is None and self._MidiDataEvent is not None:
@@ -173,8 +188,7 @@ class PianoLED(EventLineInterface):
             logging.info("MIDI Data Event removed")
     
     
-    # ---- Funzioni principali ----
-        
+    
         
     def _syncronized(funtion):
         def wrapper(self, *args, **kwargs):
@@ -182,55 +196,71 @@ class PianoLED(EventLineInterface):
                 return funtion(self, *args, **kwargs)
         return wrapper
     
-    def _syncronized_buffer(funtion):
-        def wrapper(self, *args, **kwargs):
-            with self._buffer_lock:
-                return funtion(self, *args, **kwargs)
-        return wrapper
+    # ---- Funzioni per eventi ----
     
-    @_syncronized
-    def start(self) -> None:
-        if self._task_thread is not None:
-            raise RuntimeError("Task already started")
+    
+    def handleEvent(self, event: EventData):
+        logging.debug(f"Piano received event: {event.eventType} from ")
+        if event is not None and event.eventType.__str__() in self._eventToFunction:
+            self._inputQueue.put(event)
+            #self.__call_function_on_event(event)
+        else:
+            logging.warning(f"Piano received unknown event: {event.eventType} ")
+            
+  
+    async def async_handleEvent(self, event: EventData):
+        # logging.debug(f"Piano received event: {event.eventType} from ")
+        # if event is not None and event.eventType.__str__() in self._eventToFunction:
+        #     self._inputQueue.put(event)
+        # else:
+        #     logging.warning(f"Piano received unknown event: {event.eventType} ")
+        pass
+    
+    def __call_function_on_event(self, event: EventData) -> None:
+        function: callable = self._eventToFunction.get(event.eventType.__str__(), None)
         
-        logging.info("Piano started...")
-
-        self._task_thread = threading.Thread(target=self._task_loop)
-        self._run_task = True
-        self._task_thread.start()
-    
-    @_syncronized
-    def stop(self) -> None:
-        if self._task_thread is None:
+        if function is None:
+            logging.warning(f"No function found for event: {event.eventType} - <object at{hex(id(event.eventType))}>")
             return
         
-        self._run_task = False
-        while self._task_thread.is_alive():
-            self._task_thread.join(0.1)
-        self._task_thread = None
-        logging.info("Piano Thread stopped...")
+        logging.debug(f"Processing event: {event.eventType}")
+        function(event)
     
-    
-    def _task_loop(self) -> None:
-        self._clear_events_buffer()
-        lastUpdate: float = 0.0
+    def worker_loop_function(self) -> None:
         
-        while self._run_task:
+        
+        while True:
+            if not self._inputQueue.empty():
+                while self._inputQueue.qsize():
+                    self.__call_function_on_event(self._inputQueue.get())
             
-            while len(self._event_buffer) > 0:
-                event = self._pop_event_buffer()
-                self.processMidiData(event)
-                
-            if time.time() - lastUpdate > 1/globalData.LED_REFRESH_RATE:
-                lastUpdate = time.time()
+            if time.time() - self.lastUpdate > 1/globalData.LED_REFRESH_RATE:
+                self.lastUpdate = time.time()
                 self.update_leds()
+                
+            else:
+                time.sleep(0.005)
             
             
-        self._clear_events_buffer()
+    def _onMIDI_data_event(self, event: EventData) -> None:
+        assert isinstance(event.data, tuple), "Event data must be a tuple"
+        self.processMidiData(event.data[0])
+            
+    
         
     def update_leds(self) -> None:
         #for i, led in enumerate(self._PianoLEDs):
         #update: bool = False
+        
+        #se devo accendere qualche led
+        if len(self._notePressed) > 0:
+            for note in [self._PianoNotes[i] for i in self._notePressed]:
+                for led_index in note.LEDs_index:
+                    self.turnOn_LED(self._PianoLEDs[led_index], note.velocity)
+                self._notePressed.pop(0)
+            self._update_leds = True
+
+        #se devo spegnere qualche led
         for led in self._PianoLEDs:
             if led.state:
                 turnOff: bool = True
@@ -243,42 +273,14 @@ class PianoLED(EventLineInterface):
                     
                 if turnOff and (time.time() - led.dissolvenceTime > globalData.LED_DISSOLVENCE_TIME_DEFAULT):
                     self.turnOff_LED(led)
-            # else:
-            #     for note in led.Led_Notes:
-            #         if note.pressed:
+                    self._update_leds = True
             
-                
-            #         self._neopixel[i] = (255, 255, 255)
-                    
-            #         break
-            #     else:
                     
         if self._update_leds:
             self._neopixel.show()
             self._update_leds = False     
         
-  
-    
-    def handleEvent(self, event: EventData):
-        print(f"Piano received event: {event.eventType} from {event.source}")
-        if event is not None and event.eventType in self._eventToFunction:
-            print(f"Handling event: {event.eventType}")
-            self._eventToFunction[event.eventType](event)
-  
-       
-        
-        # if event.eventType == Event.MIDI:
-        #     if self._run_task:
-        #         self._onMIDI_data_event(event.data[0])
-            
-        # elif event.eventType == Event.SETTING_CHANGE:
-        #     self._onSettingChange(event.data)
-        
-        # else:
-        #     pass
-    
-    async def async_handleEvent(self, event: EventData):
-        pass
+
     
     def _onSettingChange(self, setting: Dict[str, Any]) -> None:
         logging.debug(f"Setting changed: {setting}")
@@ -290,7 +292,7 @@ class PianoLED(EventLineInterface):
             self._keyOption_to_function[key](setting[key])
             
 
-    @_syncronized  
+     
     def setBrightness(self, brightness: float) -> None:
         if type(brightness) != float:
             logging.error("Brightness must be a float")
@@ -340,69 +342,61 @@ class PianoLED(EventLineInterface):
     def setAnimation(self) -> None:
         pass
     
-    @_syncronized_buffer
-    def _onMIDI_data_event(self, midiData: List[List[int]]) -> None:
-        self._event_buffer.append(midiData[0])
     
-    @_syncronized_buffer  
-    def _clear_events_buffer(self) -> None: 
-        self._event_buffer.clear()
     
-    @_syncronized_buffer     
-    def _pop_event_buffer(self) -> List[int]: 
-        event = self._event_buffer.pop(0)
-        return event
-    
+
     def processMidiData(self, midi: List[int]) -> None:
         
-
         command = (midi[0] & 0xF0) >> 4
         channel = midi[0] & 0x0F
         logging.debug(f"Processing MIDI data: {midi} -> command: 0X{command:02x} channel: 0X{channel:02x}")
 
-
+            
         if command == MIDI_COMMANDS.NOTE_ON.value:
-            note = midi[1] + self._transpose - globalData.NOTE_OFFSET
+            note = midi[1] - self._transpose - globalData.NOTE_OFFSET
             velocity = midi[2]
             
-        
             if velocity == 0:
                 self.resetNote(note)
             else:
                 self.setNote(note, velocity)
-                
+
         elif command == MIDI_COMMANDS.NOTE_OFF.value:
-            note = midi[1] + self._transpose - globalData.NOTE_OFFSET
+            note = midi[1] - self._transpose - globalData.NOTE_OFFSET
             velocity = midi[2]
 
             #note = note + self._transpose - globalData.NOTE_OFFSET
             self.resetNote(note)
-            
+
+        else:
+            logging.error(f"MIDI command {command} not handled")
      
     def setNote(self, note_index: int, velocity: int) -> None:
-        if note_index < 0 or note_index > len(self._PianoNotes):
-            return
-
+        logging.debug(f"Note {note_index} pressed with velocity {velocity}")
+        
+        # if note_index < 0 or note_index > len(self._PianoNotes):
+        #     return
+        
         note = self._PianoNotes[note_index]
         note.pressed = True
         note.velocity = velocity
-        logging.debug(f"Note {note_index} pressed with velocity {velocity}")
+        self._notePressed.append(note_index)
         
-        for led_index in note.LEDs_index:
-            self.turnOn_LED(self._PianoLEDs[led_index], velocity)
-            
+        #print(self._notePressed)
+         
         #super().notifyEvent(EventData(note, EventType.NOTE_PRESSED))
     
     
     
     def resetNote(self, note_index: int) -> None:
+        logging.debug(f"Note {note_index} released")
         if note_index < 0 or note_index > len(self._PianoNotes):
             return
         
         note = self._PianoNotes[note_index]
         note.pressed = False
         note.velocity = 0
-        logging.debug(f"Note {note_index} reset")
+        
         #super().notifyEvent(EventData(note, EventType.NOTE_RELEASED))
         
     
@@ -413,7 +407,6 @@ class PianoLED(EventLineInterface):
         self._neopixel[led.index] = (0, 0, 0)
         led.state = False
         led.dissolvenceTime = 0.0
-        self._update_leds = True
         logging.debug(f"LED {led.index} turned off")
         
 
@@ -424,7 +417,6 @@ class PianoLED(EventLineInterface):
         color = self._fixed_color
 
         self._neopixel[led.index] = color
-        self._update_leds = True
         led.state = True
         led.dissolvenceTime = time.time() + globalData.LED_DISSOLVENCE_TIME_DEFAULT
         logging.debug(f"LED {led.index} turned on with color {color} and velocity {velocity}")

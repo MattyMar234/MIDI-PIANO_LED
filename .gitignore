@@ -1,2 +1,7 @@
+# Ignora tutte le cartelle __pycache__ ovunque nel repository
+**/__pycache__/
+
+# Ignora anche i file .pyc e .pyo generati da Python
 *.pyc
-__pycache__/
+*.pyo
+*.pyd

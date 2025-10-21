@@ -82,8 +82,8 @@ async def main() -> None:
     piano.addInputLine(midiEventsLine)
     piano.addOutputLine(midiEventsLine)
   
-    piano.listenEvent(NotePressedEvent, MidiDataEvent)
-    piano.listenEvent(SettingChangeEvent, midiEventsLine)
+    piano.listenEvent(event = MidiDataEvent, line=midiEventsLine)
+    piano.listenEvent(event = SettingChangeEvent, line=midiEventsLine)
     piano.setMidiDataEvent(MidiDataEvent)
     piano.start()
     
@@ -172,7 +172,7 @@ def main2() -> None:
     
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.WARNING)
     asyncio.run(main())
-    
+    #sudo python3 /home/matty/Programs/MIDI-PIANO_LED/RaspberryPI/src/main.py
     
