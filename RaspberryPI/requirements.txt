@@ -1,0 +1,4 @@
+python-rtmidi
+board
+adafruit-circuitpython-neopixel
+mido
