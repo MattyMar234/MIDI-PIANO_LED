@@ -2,10 +2,11 @@ from collections import deque
 import signal
 import subprocess
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from flask import Flask, render_template, request, jsonify
 import threading
 import os
+import json
 import requests
 import platform
 from werkzeug.serving import run_simple
@@ -24,28 +25,46 @@ class WebServer(EventLineInterface):
     
     def __init__(self, host: str, port: int, folderName: str = 'templates'):
         super().__init__()
-        TEMPLATE_FOLDER = WebServer._find_templates_folder(folderName=folderName)
         
-        self._app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
-        self._app.route('/')(self.index)
-        self._app.route('/update', methods=['POST'])(self.update)
-        self._app.route('/settings')(self.settings)
-        self._app.route('/colors')(self.colors)
-        self._app.route('/console')(self.console)
-        
-        #self._app.add_url_rule('/update', 'update', self.update, methods=['POST'])
-        self._app.route('/stop', methods=['GET'])(self.stopServer)
-        self._app.route('/logs', methods=['GET'])(self.get_logs)
-        self._app.route('/get_settings', methods=['GET'])(self.load_settings)
-
+        self._config = self.__load_config()
         self._PID = os.getpid()
-        
-        print(f"Template folder: {self._app.template_folder}")
-        
         self._host: int = host
         self._port: int = port
+        self.__SettingEvent: Optional[Event] = None
+        self.__ControlsEvent: Optional[Event] = None
+     
+        # TEMPLATE_FOLDER = WebServer._find_templates_folder(folderName=folderName)
+        # self._app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
+     
+        self._app = Flask(__name__)
+        self._app.route('/')(self.index)
+        self._app.route('/api/control', methods=['POST'])(self.__updateControls)
+        self._app.route('/api/settings', methods=['POST'])(self.__updateGetSettings)
         
-  
+    
+    def setSettingChangeEventType(self, event: Optional[Event]) -> None:
+        self.__SettingEvent = event
+        
+    def setControlsChangeEventType(self, event: Optional[Event]) -> None:
+        self.__ControlsEvent = event   
+        
+    def __load_config(self) -> Dict[str, Any]:
+        try:
+            with open('config.json', 'r') as f:
+                return json.load(f)
+        except FileNotFoundError or json.JSONDecodeError:
+            # Se il file non esiste, ne crea uno con i valori di default
+            default_config = {
+                "hardware": {"led_count": 74, "led_pin": 18},
+                "frontend": {"default_theme": "dark", "default_color": "#00aaff"}
+            }
+            self.__save_config(default_config)
+            return default_config
+    
+    # --- Funzione per salvare la configurazione ---
+    def __save_config(self, config_data: dict) -> None:
+        with open('config.json', 'w') as f:
+            json.dump(config_data, f, indent=4)
     
     @classmethod    
     def _find_templates_folder(self, folderName: str, starting: str = os.getcwd()):
@@ -53,6 +72,45 @@ class WebServer(EventLineInterface):
             if folderName in dirnames:
                 return os.path.join(dirpath, folderName)
         raise FileNotFoundError(f"Cartella {folderName} non trovata sotto " + starting)
+
+    def __updateControls(self) -> None:
+        """Endpoint API per ricevere comandi di controllo."""
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"status": "error", "message": "Nessun dato ricevuto"}), 400
+        
+        if self.__ControlsEvent is None:
+            logging.warning("evento non impostato")
+            
+        
+        modalita = data.get('modalita')
+        
+        try:
+            if modalita == 'spegni':
+                pass
+            
+            elif modalita == 'tutti_fissi':
+                self.notifyEvent(EventData({"mode" : "fixed", "color": data.get('colore'), "brightness" : data.get('luminosita')}, self._sendMidiDataEvent), as_thread= True)
+ 
+            elif modalita == 'aleatorio_singolo':
+                self.notifyEvent(EventData({"mode" : "fixed", "color": data.get('colore'), "brightness" : data.get('luminosita')}, self._sendMidiDataEvent), as_thread= True)
+                #led_controller.avvia_aleatorio_singolo(data.get('colore'), data.get('luminosita'), data.get('durata'))
+            
+            elif modalita == 'schema_cromatico':
+                led_controller.avvia_schema_cromatico(data.get('sotto_modalita'), data.get('schema'), data.get('luminosita'), data.get('durata'))
+            
+            elif modalita == 'aleatorio_singolo_fade':
+                led_controller.avvia_aleatorio_singolo_fade(data.get('colore'), data.get('max_luminosita'), data.get('durata_fade'))
+            
+            else:
+                return jsonify({"status": "error", "message": f"Modalità '{modalita}' non riconosciuta"}), 400
+
+            return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+        
 
     def handleEvent(self, event):
         pass

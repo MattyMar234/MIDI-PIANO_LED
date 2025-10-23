@@ -1,12 +1,10 @@
-
-from dataclasses import dataclass
 from typing import Dict, Final, Generic, TypeVar
 from enum import Enum
+import os
 
-
-
-
-
+##===============[SETTINGS FILE]===============##
+# CWD: Final[str] = os.getcwd()
+# DATA_FOLDER = __file__
 
 ##===============[PIANO SETTINGS]===============##
 PIANO_PORT_NAME: Final[str] = "Digital Piano"

@@ -1,7 +1,7 @@
 # import sys
 # import threading
 import globalData
-import rtmidi
+
 # print(rtmidi.__file__)
 # from rtmidi.midiutil import open_midiport
 # from rtmidi.midiutil import open_midiinput
@@ -9,8 +9,6 @@ import rtmidi
 # import mido
 import time
 import board
-import digitalio
-import neopixel
 import argparse
 import logging
 import asyncio
@@ -19,6 +17,7 @@ import asyncio
 from Midi.midiInterface import MidiInterface
 from EventLine.eventLine import EventFactory, Event, EventData, EventLine
 from PianoElements.piano import PianoLED
+from Web.webServer import WebServer
 
 
 
@@ -46,6 +45,10 @@ def listen_port(midiin, port) -> None:
 
 
 async def main() -> None:
+    
+    import digitalio
+    import neopixel
+    import rtmidi
     
     logging.info("Entering main loop. Press Control-C to exit.")
     logging.info("")
@@ -75,8 +78,8 @@ async def main() -> None:
     
     logging.info("-"*80)
     
-    #-------DIPOSITIVI & CONNESSIONI-------#
-    #piano
+    # -------DIPOSITIVI & CONNESSIONI------- #
+    # --- piano --- #
     piano = PianoLED(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
     piano.addInputLine(midiEventsLine)
     piano.addOutputLine(midiEventsLine)
@@ -86,21 +89,19 @@ async def main() -> None:
     piano.setMidiDataEvent(MidiDataEvent)
     piano.start()
     
-    #piano midi input
+    # --- piano midi input --- #
     pianoInterface = MidiInterface(MidiInterface.Mode.READ, "Piano-MIDI-Interface")
     pianoInterface.addOutputLine(midiEventsLine)
     pianoInterface.setSendMidiDataEvent(MidiDataEvent)
     
-
-
-    #midi output  
-    # pianoInterface = MidiInterface(MidiInterface.Mode.WRITE)
+    # --- LAN midi output --- #
+    pianoInterface = MidiInterface(MidiInterface.Mode.WRITE, "MIDI-Over-UDP-Interface")
     # pianoInterface.InputLine = midiEventsLine
     # piano.listenEvent(EventType.MIDI)
     # piano.listenEvent(EventType.SETTING_CHANGE)
 
-    # #web server
-    # server = WebServer('0.0.0.0', 5000)
+    # --- Web server --- #
+    server = WebServer('0.0.0.0', 5000)
     # server.OutputLine = midiEventsLine
     # server.InputLine = midiEventsLine
     # piano.listenEvent(Event.MIDI)
@@ -150,7 +151,11 @@ async def main() -> None:
         
 
     
-def test() -> None:
+def IO_Test() -> None:
+    
+    import digitalio
+    import neopixel
+    
     """
     Funzione di test per far lampeggiare un GPIO a 2 Hz.
     """
@@ -200,7 +205,9 @@ def test() -> None:
             led.value = False
             led.deinit()
         
-        
+
+def webServerTest() -> None:
+    pass   
 
 
 if __name__ == "__main__":
@@ -210,14 +217,15 @@ if __name__ == "__main__":
     
     functions = {
         "main": lambda: asyncio.run(main()),
-        "test": test
+        "test": IO_Test,
+        "web" : webServerTest
     }
 
     # Argomento per selezionare la funzione da eseguire
     parser.add_argument(
         '--function', 
         type=str, 
-        choices=['main', 'test'], 
+        choices=[functions.keys()], 
         default='main',
         help="Seleziona la funzione da avviare: 'main' (default) per l'applicazione completa, 'test' per il test dei GPIO."
     )

@@ -228,7 +228,6 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
     
     def worker_loop_function(self) -> None:
         
-        
         while True:
             if not self._inputQueue.empty():
                 while self._inputQueue.qsize():
