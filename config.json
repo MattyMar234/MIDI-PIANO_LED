@@ -1,0 +1,10 @@
+{
+    "hardware": {
+        "led_count": 74,
+        "led_pin": 18
+    },
+    "frontend": {
+        "default_theme": "dark",
+        "default_color": "#00aaff"
+    }
+}

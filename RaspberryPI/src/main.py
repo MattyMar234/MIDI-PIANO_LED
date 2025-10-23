@@ -15,9 +15,10 @@ import asyncio
 
 #from webServer import WebServer
 from Midi.midiInterface import MidiInterface
+from Midi.midiInterfaceFactory import MidiInterfaceFactory
 from EventLine.eventLine import EventFactory, Event, EventData, EventLine
 from PianoElements.piano import PianoLED
-from Web.webServer import WebServer
+from webServer import WebServer
 
 
 
@@ -59,10 +60,9 @@ async def main() -> None:
     NotePressedEvent = EventFactory.createEventType("NOTE_PRESSED")
     NoteReleasedEvent = EventFactory.createEventType("NOTE_RELEASED")
     MidiDataEvent = EventFactory.createEventType("MIDI")
-    SettingChangeEvent = EventFactory.createEventType("SETTING_CHANGE")
     
-    ColorChangeEvent = EventFactory.createEventType("COLOR_CHANGE")
-    changeEffectEvent = EventFactory.createEventType("CHANGE_EFFECT")
+    AnimationChangeEvent = EventFactory.createEventType("ANIMATION_CHANGE")
+    SettingChangeEvent = EventFactory.createEventType("SETTING_CHANGE")
     
     logging.info("-"*80)
     
@@ -70,45 +70,82 @@ async def main() -> None:
     midiEventsLine.registerEvent(NotePressedEvent)
     midiEventsLine.registerEvent(NoteReleasedEvent)
     midiEventsLine.registerEvent(MidiDataEvent)
-    midiEventsLine.registerEvent(SettingChangeEvent)
     
     settingsLine = EventLine()
-    settingsLine.registerEvent(ColorChangeEvent)
-    settingsLine.registerEvent(changeEffectEvent)
+    settingsLine.registerEvent(AnimationChangeEvent)
+    settingsLine.registerEvent(SettingChangeEvent)
+
     
     logging.info("-"*80)
     
-    # -------DIPOSITIVI & CONNESSIONI------- #
-    # --- piano --- #
+    # ================[DIPOSITIVI & CONNESSIONI]================ #
+    # -------------------------------------------------------------#
+    # --- [piano] --- #
+    # -------------------------------------------------------------#
     piano = PianoLED(note_number=88, neoPixel_number=74, LED_strip_dataPin=board.D18)
-    piano.addInputLine(midiEventsLine)
-    piano.addOutputLine(midiEventsLine)
+    piano.addInputLine(midiEventsLine)      #Collego una linea di input
+    piano.addInputLine(settingsLine)        #Collego una linea di input
+    piano.addOutputLine(midiEventsLine)     #Collego una linea di output
   
+    #ascolto <MidiDataEvent> su <midiEventsLine>
     piano.listenEvent(event = MidiDataEvent, line=midiEventsLine)
-    piano.listenEvent(event = SettingChangeEvent, line=midiEventsLine)
+    
+    #ascolto <SettingChangeEvent> su <midiEventsLine>
+    piano.listenEvent(event = SettingChangeEvent, line=settingsLine)
+    
+    #ascolto <AnimationChangeEvent> su <midiEventsLine>
+    piano.listenEvent(event = AnimationChangeEvent, line=settingsLine)
+    
+    #se sevo comunicare un dato midi cosa utilizzo
     piano.setMidiDataEvent(MidiDataEvent)
+    piano.setAnimantionEvent(AnimationChangeEvent)
+    
+    #avvio il processo
     piano.start()
     
-    # --- piano midi input --- #
-    pianoInterface = MidiInterface(MidiInterface.Mode.READ, "Piano-MIDI-Interface")
+    # -------------------------------------------------------------#
+    # --- [piano Midi input] --- #
+    # -------------------------------------------------------------#
+    pianoInterface = MidiInterfaceFactory.create_interface(
+        mode = MidiInterfaceFactory.MidiMode.READ,
+        connection_type = MidiInterfaceFactory.MidiInterfaceType.USB,
+        interface_name = "Piano-MIDI-Interface",
+        sendMidiDataEvent = MidiDataEvent,
+        reciveMidiDataEvent = MidiDataEvent    
+    )
+
     pianoInterface.addOutputLine(midiEventsLine)
     pianoInterface.setSendMidiDataEvent(MidiDataEvent)
     
-    # --- LAN midi output --- #
-    pianoInterface = MidiInterface(MidiInterface.Mode.WRITE, "MIDI-Over-UDP-Interface")
+ 
+    # -------------------------------------------------------------#
+    # --- [LAN Midi output] --- #
+    # -------------------------------------------------------------#
+    #pianoInterface = MidiInterface(MidiInterface.Mode.WRITE, "MIDI-Over-UDP-Interface")
     # pianoInterface.InputLine = midiEventsLine
     # piano.listenEvent(EventType.MIDI)
     # piano.listenEvent(EventType.SETTING_CHANGE)
 
-    # --- Web server --- #
+    # -------------------------------------------------------------#
+    # --- [WebServer] --- #
+    # -------------------------------------------------------------#
+
     server = WebServer('0.0.0.0', 5000)
-    # server.OutputLine = midiEventsLine
-    # server.InputLine = midiEventsLine
-    # piano.listenEvent(Event.MIDI)
-    # piano.listenEvent(Event.SETTING_CHANGE)
+    server.addInputLine(midiEventsLine) #Collego una linea di input
+    server.addOutputLine(settingsLine)  #Collego una linea di input
+    
+    #ascolto <MidiDataEvent> su <midiEventsLine>
+    server.listenEvent(event = MidiDataEvent, line=midiEventsLine)
     
     
-    # server.start()
+    # imposto l'evento da richiamare quando cambio l'animazione
+    server.setControlsChangeEventType(AnimationChangeEvent)
+    
+    # imposto l'evento da richiamare quando combio le impostazioni
+    server.setSettingChangeEventType(SettingChangeEvent)
+    
+    server.start()
+    # ============================================================ #
     
     midiin = rtmidi.MidiIn()
     available_ports: int = -1
@@ -143,8 +180,23 @@ async def main() -> None:
                 for i, port in enumerate(ports):
                     if globalData.PIANO_PORT_NAME in port:
                         #print(f"Porta {i} selezionata: {port}")
-                        pianoInterface.setPort(i)
+                        #pianoInterface.setPort(i)
+                        
+                        pianoInterface = None
+                        
+                        pianoInterface = MidiInterfaceFactory.create_interface(
+                            mode = MidiInterfaceFactory.MidiMode.READ,
+                            connection_type = MidiInterfaceFactory.MidiInterfaceType.USB,
+                            interface_name = "Piano-MIDI-Interface",
+                            sendMidiDataEvent = MidiDataEvent,
+                            reciveMidiDataEvent = MidiDataEvent,
+                            usb_port_idx = i    
+                        )
+
+                        pianoInterface.addOutputLine(midiEventsLine)
+                        pianoInterface.setSendMidiDataEvent(MidiDataEvent)
                         pianoInterface.start()
+                        
                         break
             
             time.sleep(2)
@@ -232,7 +284,7 @@ if __name__ == "__main__":
 
     # Argomento per selezionare il livello di logging
     parser.add_argument(
-        '--log-level', 
+        '--log_level', 
         type=str, 
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], 
         default='INFO',

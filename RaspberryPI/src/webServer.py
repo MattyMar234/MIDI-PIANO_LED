@@ -3,7 +3,7 @@ import signal
 import subprocess
 import time
 from typing import Any, Dict, Optional
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, Response, render_template, request, jsonify
 import threading
 import os
 import json
@@ -13,6 +13,7 @@ from werkzeug.serving import run_simple
 
 from EventLine.eventLineInterface import EventLineInterface
 from EventLine.eventLine import EventData, EventLine, Event
+from PianoElements.piano import PianoLED
 import logging
 import globalData
 
@@ -48,6 +49,119 @@ class WebServer(EventLineInterface):
     def setControlsChangeEventType(self, event: Optional[Event]) -> None:
         self.__ControlsEvent = event   
         
+    
+    @classmethod    
+    def _find_templates_folder(self, folderName: str, starting: str = os.getcwd()):
+        for dirpath, dirnames, _ in os.walk(starting):
+            if folderName in dirnames:
+                return os.path.join(dirpath, folderName)
+        raise FileNotFoundError(f"Cartella {folderName} non trovata sotto " + starting)
+
+
+    def index(self):
+        return render_template('index.html')
+
+
+    def __updateControls(self) -> Response:
+        """Endpoint API per ricevere comandi di controllo."""
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"status": "error", "message": "Nessun dato ricevuto"}), 400
+        
+        if self.__ControlsEvent is None:
+            logging.warning("evento non impostato")
+            return jsonify({"status": "error", "message": "evento non impostato"}), 500
+            
+        modalita = data.get('modalita')
+        
+        try:
+            if modalita == 'spegni':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF
+                }, self.__ControlsEvent)
+                
+                self.notifyEvent(msg, as_thread = True)
+            
+            elif modalita == 'tutti_fissi':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF,
+                    PianoLED.Setting.COLOR: data.get('colore'), 
+                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
+                }, self.__ControlsEvent)
+                
+                self.notifyEvent(msg, as_thread = True)
+            
+            elif modalita == 'aleatorio_singolo':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.ON_PRESS,
+                    PianoLED.Setting.COLOR: data.get('colore'), 
+                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.Setting.DELAY: data.get('durata'),
+                }, self.__ControlsEvent)
+                
+                self.notifyEvent(msg, as_thread = True)
+               
+            elif modalita == 'aleatorio_singolo':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.RANDOM_COLOR,
+                    PianoLED.Setting.COLOR: data.get('colore'), 
+                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.Setting.DELAY: data.get('durata'), 
+                }, self.__ControlsEvent)
+                
+                self.notifyEvent(msg, as_thread = True)
+            
+                
+            elif modalita == 'schema_cromatico':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.CROMATIC,
+                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.Setting.DELAY: data.get('durata'), 
+                    PianoLED.Setting.MODALITY: data.get('sotto_modalita'), 
+                    PianoLED.Setting.SCHEME: data.get('schema'), 
+                }, self.__ControlsEvent)
+                
+                self.notifyEvent(msg, as_thread = True)
+                
+            elif modalita == 'aleatorio_singolo_fade':
+                #led_controller.avvia_aleatorio_singolo_fade(data.get('colore'), data.get('max_luminosita'), data.get('durata_fade'))
+                logging.warning("aleatorio_singolo_fade non implementato")
+            
+            else:
+                return jsonify({"status": "error", "message": f"Modalità '{modalita}' non riconosciuta"}), 400
+
+            return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+      
+        
+    def __updateGetSettings(self) -> Response:
+        """Endpoint per leggere e scrivere le impostazioni di configurazione."""
+        if request.method == 'GET':
+            # Restituisce la configurazione attuale
+            return jsonify(self._config)
+        
+        if request.method == 'POST':
+            new_settings = request.get_json()
+            if not new_settings:
+                return jsonify({"status": "error", "message": "Nessun dato ricevuto"}), 400
+            
+            # Aggiorna la configurazione in memoria
+            self._config.update(new_settings)
+            
+            # Salva la configurazione su file
+            self.__save_config(self._config)
+            
+            # NOTA: Le modifiche hardware richiedono un riavvio del server per essere applicate.
+            return jsonify({
+                "status": "success", 
+                "message": "Impostazioni salvate. Riavvia il server per applicare le modifiche hardware."
+            })
+
+
+
     def __load_config(self) -> Dict[str, Any]:
         try:
             with open('config.json', 'r') as f:
@@ -61,56 +175,11 @@ class WebServer(EventLineInterface):
             self.__save_config(default_config)
             return default_config
     
-    # --- Funzione per salvare la configurazione ---
+
     def __save_config(self, config_data: dict) -> None:
         with open('config.json', 'w') as f:
             json.dump(config_data, f, indent=4)
-    
-    @classmethod    
-    def _find_templates_folder(self, folderName: str, starting: str = os.getcwd()):
-        for dirpath, dirnames, _ in os.walk(starting):
-            if folderName in dirnames:
-                return os.path.join(dirpath, folderName)
-        raise FileNotFoundError(f"Cartella {folderName} non trovata sotto " + starting)
 
-    def __updateControls(self) -> None:
-        """Endpoint API per ricevere comandi di controllo."""
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({"status": "error", "message": "Nessun dato ricevuto"}), 400
-        
-        if self.__ControlsEvent is None:
-            logging.warning("evento non impostato")
-            
-        
-        modalita = data.get('modalita')
-        
-        try:
-            if modalita == 'spegni':
-                pass
-            
-            elif modalita == 'tutti_fissi':
-                self.notifyEvent(EventData({"mode" : "fixed", "color": data.get('colore'), "brightness" : data.get('luminosita')}, self._sendMidiDataEvent), as_thread= True)
- 
-            elif modalita == 'aleatorio_singolo':
-                self.notifyEvent(EventData({"mode" : "fixed", "color": data.get('colore'), "brightness" : data.get('luminosita')}, self._sendMidiDataEvent), as_thread= True)
-                #led_controller.avvia_aleatorio_singolo(data.get('colore'), data.get('luminosita'), data.get('durata'))
-            
-            elif modalita == 'schema_cromatico':
-                led_controller.avvia_schema_cromatico(data.get('sotto_modalita'), data.get('schema'), data.get('luminosita'), data.get('durata'))
-            
-            elif modalita == 'aleatorio_singolo_fade':
-                led_controller.avvia_aleatorio_singolo_fade(data.get('colore'), data.get('max_luminosita'), data.get('durata_fade'))
-            
-            else:
-                return jsonify({"status": "error", "message": f"Modalità '{modalita}' non riconosciuta"}), 400
-
-            return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
-
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-        
 
     def handleEvent(self, event):
         pass
@@ -165,51 +234,35 @@ class WebServer(EventLineInterface):
     def _run_server(self):
         run_simple(self._host, self._port, self._app, threaded=True)
         #self._app.run(debug=True, use_reloader=False, host=self._host, port=self._port)
-        
-    def index(self):
-        logging.debug("Page requested: 'index.html'")  
-        return render_template('index.html', variables=self._variables)
-    
-    def index(self):
-        return render_template('index.html')
-    
-    def settings(self):
-        return render_template('settings.html')#, variables=self._variables)
-    
-    def colors(self):
-        return render_template('colors.html', variables=self._variables)
-    
-    def console(self):
-        return render_template('console.html')
     
     def get_logs(self):
         # Restituisce gli ultimi 100 messaggi
         return jsonify(list(log_messages))
 
-    def load_settings(self):
+    # def load_settings(self):
 
-        data: Dict[str, Dict[str, Any]] = {}
+    #     data: Dict[str, Dict[str, Any]] = {}
 
-        for i, obj in enumerate(list(globalData.Settings)):
-            data[i] = obj.value.jsonData() 
+    #     for i, obj in enumerate(list(globalData.Settings)):
+    #         data[i] = obj.value.jsonData() 
 
 
-        return jsonify(success=True, variables=data)
+    #     return jsonify(success=True, variables=data)
 
-    def update(self):
-        data = request.get_json(silent=True)
+    # def update(self):
+    #     data = request.get_json(silent=True)
         
-        if not(data is None):
-            for key, value in data.items():
-                if key in self._variables:
-                    self._variables[key] = value
+    #     if not(data is None):
+    #         for key, value in data.items():
+    #             if key in self._variables:
+    #                 self._variables[key] = value
             
-            logging.info(f"request.get_json: {data}")
-            super().notifyEvent(EventData(data, Event.SETTING_CHANGE)) 
-        else:
-            logging.debug("request.get_json is None")    
+    #         logging.info(f"request.get_json: {data}")
+    #         super().notifyEvent(EventData(data, Event.SETTING_CHANGE)) 
+    #     else:
+    #         logging.debug("request.get_json is None")    
         
-        return jsonify(success=True, variables=self._variables)
+    #     return jsonify(success=True, variables=self._variables)
 
    
 

@@ -30,16 +30,54 @@ class MidiInterfaceFactory():
         return available_ports
     
     @staticmethod
+    def create_interface(
+        *,
+        mode: MidiMode,
+        connection_type: MidiInterfaceType,
+        interface_name: Optional[str] = None,
+        sendMidiDataEvent: Optional[Event] = None,
+        reciveMidiDataEvent: Optional[Event] = None,
+        
+        usb_port_idx: int = None,
+        ip_address: Optional[str] = None,
+        udp_port: Optional[int] = None
+      
+    ) -> MidiInterface:
+        
+        interface = MidiInterface(interface_name, sendMidiDataEvent, reciveMidiDataEvent)
+
+        if connection_type == MidiInterfaceFactory.MidiInterfaceType.USB and mode == MidiInterfaceFactory.MidiMode.READ:
+            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__usb_read_function(self, usb_port_idx))
+
+        elif connection_type == MidiInterfaceFactory.MidiInterfaceType.USB and mode == MidiInterfaceFactory.MidiMode.WRITE:
+            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__usb_write_function(self, usb_port_idx))
+            interface._setEventHandleFunction(lambda self, event: MidiInterfaceFactory.__handle_event_function(self, event))
+
+        elif connection_type == MidiInterfaceFactory.MidiInterfaceType.LAN and mode == MidiInterfaceFactory.MidiMode.READ:
+            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__lan_read_function(self, ip_address, udp_port))
+
+        elif connection_type == MidiInterfaceFactory.MidiInterfaceType.LAN and mode == MidiInterfaceFactory.MidiMode.WRITE:
+            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__lan_write_function(self, ip_address, udp_port))
+            interface._setEventHandleFunction(lambda self, event: MidiInterfaceFactory.__handle_event_function(self, event))
+
+        return interface
+    
+    @staticmethod
     def __usb_read_function(self: MidiInterface, port: int) -> None:
         #se non so che evento mandare aspetto un po
+        print("heree")
+        
         while self._sendMidiDataEvent is None or port is None:
             if self._port is None:
                 logging.warning(f"Midi interface {self._worker_name} has no port set, waiting...")
+                print(f"Midi interface {self._worker_name} has no port set, waiting...")
             if self._sendMidiDataEvent is None:
                 logging.warning(f"Midi interface {self._worker_name} has no midiDataEvent set, waiting...")
+                print(f"Midi interface {self._worker_name} has no midiDataEvent set, waiting...")
             time.sleep(0.800)
        
         logging.info(f"Midi interface {self._worker_name} connected to port {port}, starting read loop")
+        print("heree")
         
         try:
             midiin = rtmidi.MidiIn()
@@ -161,35 +199,4 @@ class MidiInterfaceFactory():
         
 
 
-    @staticmethod
-    def create_interface(
-        *,
-        mode: MidiInterface.Mode,
-        connection_type: MidiInterface.ConnectionType,
-        interface_name: Optional[str] = None,
-        sendMidiDataEvent: Optional[Event] = None,
-        reciveMidiDataEvent: Optional[Event] = None,
-        
-        usb_port_idx: int = None,
-        ip_address: Optional[str] = None,
-        udp_port: Optional[int] = None
-      
-    ) -> MidiInterface:
-        
-        interface = MidiInterface(interface_name, sendMidiDataEvent, reciveMidiDataEvent)
-
-        if connection_type == MidiInterface.ConnectionType.USB and mode == MidiInterface.Mode.READ:
-            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__usb_read_function(self, usb_port_idx))
-
-        elif connection_type == MidiInterface.ConnectionType.USB and mode == MidiInterface.Mode.WRITE:
-            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__usb_write_function(self, usb_port_idx))
-            interface._setEventHandleFunction(lambda self, event: MidiInterfaceFactory.__handle_event_function(self, event))
-
-        elif connection_type == MidiInterface.ConnectionType.LAN and mode == MidiInterface.Mode.READ:
-            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__lan_read_function(self, ip_address, udp_port))
-
-        elif connection_type == MidiInterface.ConnectionType.LAN and mode == MidiInterface.Mode.WRITE:
-            interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__lan_write_function(self, ip_address, udp_port))
-            interface._setEventHandleFunction(lambda self, event: MidiInterfaceFactory.__handle_event_function(self, event))
-
-        return interface
+    

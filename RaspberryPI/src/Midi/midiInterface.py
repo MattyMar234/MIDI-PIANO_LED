@@ -38,7 +38,9 @@ class MidiInterface(EventLineInterface, MultiprocessingWorker):
     def worker_loop_function(self) -> None:
         try:
             if self._loopFunction is not None:
-                self._loopFunction()
+                
+                self._loopFunction(self)
+              
             else:
                 logging.error(f"Midi interface {self._worker_name} has no loop function set.")
                 raise Exception("No loop function set.")

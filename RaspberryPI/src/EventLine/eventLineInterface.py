@@ -12,7 +12,13 @@ class EventLineInterface(LineObserver):
         
         self._inputLines: list[EventLine] = []
         self._outputLines: list[EventLine] = []
-        
+    
+    def __del__(self) -> None:
+        for line in self._outputLines:
+            self._outputLines.remove(line)
+            
+        for line in self._inputLines:
+            self._outputLines.remove(line)   
  
     def start_background_loop(self, loop):
         asyncio.set_event_loop(loop)

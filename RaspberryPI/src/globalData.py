@@ -22,8 +22,8 @@ TOTAL_LED: int = (PIANO_LENGHT/LED_LENGHT)
 LED_STRIP_OFFSET: Final[float] = 0.0
 
 
-LED_REFRESH_RATE: int = 70
-LED_DISSOLVENCE_TIME_DEFAULT: Final[float] = 0.160
+LED_REFRESH_RATE: int = 60
+#LED_DISSOLVENCE_TIME_DEFAULT: Final[float] = 0.160
 DEFAULT_BRIGHTNESS_VALUE: Final[float] = 0.4
 
 
@@ -62,19 +62,4 @@ class SettingsData(Generic[T]):
         }
 
 
-
-class Settings(Enum):
-    DISSOLVENZE = SettingsData[float]("Dissolvenze", 0.010, 1, LED_DISSOLVENCE_TIME_DEFAULT)
-    BRIGHTNESS = SettingsData[float]("Brightness", 0.0, 1.0, DEFAULT_BRIGHTNESS_VALUE)
-    NOTE_SIZE = SettingsData[float]("Note size", 0.0, 3.0, PIANO_WHITE_NOTE_LENGHT)
-    #LED_SIZE = 
-    
-
-
-#data = {}
-
-# for i, obj in enumerate(list(Settings)):
-#     data[i] = obj.value.jsonData() 
-
-# print(data)
 

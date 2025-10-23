@@ -1,10 +1,10 @@
 import globalData
 import board
 import neopixel
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import threading
 import time
-from enum import Enum
+from enum import Enum, auto
 import logging
 import multiprocessing
 
@@ -58,6 +58,23 @@ class LED:
 
 class PianoLED(EventLineInterface, MultiprocessingWorker):
     
+    ANIMATION_PARAMETRE_NAME: Final[str] = "mode"
+    SETTING_PARAMETRE_NAME: Final[str] = "mode"
+    
+    class Animation(Enum):
+        OFF = auto()
+        FIXED = auto()
+        ON_PRESS = auto()
+        RANDOM_COLOR = auto()
+        CROMATIC = auto()
+        
+    class Setting(Enum):
+        COLOR = auto()
+        BRIGHTNESS = auto()
+        DELAY = auto()
+        SCHEME = auto()
+        MODALITY = auto()
+    
     def __init__ (
         self, 
         note_number: int, 
@@ -101,16 +118,28 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
         self._transpose: int = transpose
         
         # ------ LED Update & Animations ----- 
-        self._update_leds: bool = False
+        self.__currentAnimation: PianoLED.Animation = PianoLED.Animation.ON_PRESS
         self._fixed_color: Tuple[int, int, int] = (255, 0, 0)
+        self._cromatic_color: Tuple[int, int, int] = (255, 0, 0)
+        self._update_leds: bool = False
+        self._dissolvenceDuration: float = 0.150
+        
         self.lastUpdate: float = 0.0
         self._notePressed: List[int] = list()
         
-        self._keyOption_to_function = {
-            "color" : self.setColor,
-            "brightness" : self.setBrightness,
-            "animation" : self.setAnimation
+        self._animation_to_funciton = {
+            PianoLED.Animation.OFF : self.__turn_off_leds,
+            PianoLED.Animation.FIXED : self.__set_fixed_color_animation,
+            PianoLED.Animation.ON_PRESS : self.__set_fixed_on_press_animation,
+            PianoLED.Animation.RANDOM_COLOR: self.__set_random_color_animation,
+            PianoLED.Animation.CROMATIC: self.__set_random_cromatic_animation
         }
+        
+        # self._keyOption_to_function = {
+        #     "color" : self.__setColor,
+        #     "brightness" : self.__setBrightness,
+        #     "animation" : self.setAnimation
+        # }
         
         
         
@@ -187,8 +216,19 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
             self._MidiDataEvent = None
             logging.info("MIDI Data Event removed")
     
-    
-    
+    def setAnimantionEvent(self, event: Optional[Event]) -> None:
+        assert event is None or isinstance(event, Event), "Event must be of type Event or None"
+
+        if event is not None and event not in self._eventToFunction:
+            self._MidiDataEvent = event
+            self._eventToFunction[event.__str__()] = self._onAnimationChange
+            logging.info(f"Piano-MIDI-Data Event set on event: {event}") 
+        
+        elif event is None and self._MidiDataEvent is not None:
+            del self._eventToFunction[self._MidiDataEvent]
+            self._MidiDataEvent = None
+            logging.info("MIDI Data Event removed")
+        
         
     def _syncronized(funtion):
         def wrapper(self, *args, **kwargs):
@@ -207,14 +247,6 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
         else:
             logging.warning(f"Piano received unknown event: {event.eventType} ")
             
-  
-    async def async_handleEvent(self, event: EventData):
-        # logging.debug(f"Piano received event: {event.eventType} from ")
-        # if event is not None and event.eventType.__str__() in self._eventToFunction:
-        #     self._inputQueue.put(event)
-        # else:
-        #     logging.warning(f"Piano received unknown event: {event.eventType} ")
-        pass
     
     def __call_function_on_event(self, event: EventData) -> None:
         function: callable = self._eventToFunction.get(event.eventType.__str__(), None)
@@ -245,8 +277,42 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
         assert isinstance(event.data, tuple), "Event data must be a tuple"
         self.processMidiData(event.data[0])
             
-    
+    def _onAnimationChange(self, event: EventData) -> None:
+        print("heree")
+        assert isinstance(event.data, dict), "Event data must be a dict"
+        assert isinstance(event.data[PianoLED.ANIMATION_PARAMETRE_NAME], PianoLED.Animation), "tipo dell'oggetto non valido"
+
+        try:
+            self._animation_to_funciton[event.data[PianoLED.ANIMATION_PARAMETRE_NAME]](event.data)
+        except Exception as e:
+            logging.error(str(e))
         
+    @_syncronized
+    def __turn_off_leds(self, data: Dict[Setting, Any], *args, **kwargs) -> None:
+        pass
+    
+    @_syncronized
+    def __set_fixed_color_animation(self, data: Dict[Setting, Any], *args, **kwargs) -> None:
+        #self.__currentAnimation = PianoLED.Animation.FIXED
+        pass
+    
+    @_syncronized
+    def __set_fixed_on_press_animation(self, data: Dict[Setting, Any], *args, **kwargs) -> None:
+        self.__currentAnimation = PianoLED.Animation.ON_PRESS
+        self._dissolvenceDuration = float(min(data[PianoLED.Setting.DELAY], 1000)/1000)
+        self.__setColor(color = data[PianoLED.Setting.COLOR])
+        self.__setBrightness(255 / min(data[PianoLED.Setting.BRIGHTNESS], 100))
+        
+        logging.info(f"Animazione impostata {self.__currentAnimation} con delay={self._dissolvenceDuration}, color={self._fixed_color} e brightness={self._brightness}")
+    
+    @_syncronized  
+    def __set_random_color_animation(self, data: Dict[Setting, Any], *args, **kwargs) -> None:
+        pass
+    
+    @_syncronized
+    def __set_random_cromatic_animation(self, data: Dict[Setting, Any], *args, **kwargs) -> None:
+        pass
+       
     def update_leds(self) -> None:
         #for i, led in enumerate(self._PianoLEDs):
         #update: bool = False
@@ -270,7 +336,7 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
                         turnOff = False
                         break
                     
-                if turnOff and (time.time() - led.dissolvenceTime > globalData.LED_DISSOLVENCE_TIME_DEFAULT):
+                if turnOff and (time.time() - led.dissolvenceTime > self._dissolvenceDuration):
                     self.turnOff_LED(led)
                     self._update_leds = True
             
@@ -292,7 +358,7 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
             
 
      
-    def setBrightness(self, brightness: float) -> None:
+    def __setBrightness(self, brightness: float) -> None:
         if type(brightness) != float:
             logging.error("Brightness must be a float")
             return
@@ -301,8 +367,8 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
         self._brightness = brightness
         self._neopixel.brightness = self._brightness
     
-    @_syncronized
-    def setColor(self, color: Union[Tuple[int, int, int], str, None]) -> None:
+
+    def __setColor(self, color: Union[Tuple[int, int, int], str, None]) -> None:
         if color is None or (type(color) != tuple and type(color) != str):
             logging.error("Color must be a tuple or a string")
             return
@@ -337,12 +403,7 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
         self._fixed_color = color
         logging.debug(f"Color set to {color}")
     
-    @_syncronized
-    def setAnimation(self) -> None:
-        pass
-    
-    
-    
+ 
 
     def processMidiData(self, midi: List[int]) -> None:
         
@@ -417,5 +478,5 @@ class PianoLED(EventLineInterface, MultiprocessingWorker):
 
         self._neopixel[led.index] = color
         led.state = True
-        led.dissolvenceTime = time.time() + globalData.LED_DISSOLVENCE_TIME_DEFAULT
+        led.dissolvenceTime = time.time() + self._dissolvenceDuration
         logging.debug(f"LED {led.index} turned on with color {color} and velocity {velocity}")
