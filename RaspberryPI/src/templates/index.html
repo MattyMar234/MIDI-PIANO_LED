@@ -3,22 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Server</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Controllo LED WS2812</title>
+    <!-- Font Awesome per le icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-    <nav>
-        <a href="/">Home</a> |
-        <a href="/settings">Impostazioni</a> |
-        <a href="/colors">Colori</a> |
-        <a href="/console">Console</a>
-    </nav>
+    <div class="app-container">
+        <!-- Sidebar per la navigazione -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-lightbulb"></i> LED Control</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-button active" data-target="tutti_fissi">
+                    <i class="fas fa-palette"></i>
+                    <span>Tutti Fissi</span>
+                </button>
+                <button class="nav-button" data-target="aleatorio_singolo">
+                    <i class="fas fa-dice"></i>
+                    <span>Singolo Aleatorio</span>
+                </button>
+                <button class="nav-button" data-target="schema_cromatico">
+                    <i class="fas fa-rainbow"></i>
+                    <span>Schemi Cromatici</span>
+                </button>
+                <button class="nav-button" data-target="aleatorio_singolo_fade">
+                    <i class="fas fa-adjust"></i>
+                    <span>Singolo con Fade</span>
+                </button>
+                <button class="nav-button" data-target="impostazioni">
+                    <i class="fas fa-cog"></i>
+                    <span>Impostazioni</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="btn-spegni-tutto" class="power-off-btn">
+                    <i class="fas fa-power-off"></i>
+                    <span>Spegni Tutto</span>
+                </button>
+            </div>
+        </aside>
 
-    <div class="container">
-        <h2>Benvenuto nel Web Server</h2>
-        <p>Usa la navbar per navigare tra le sezioni.</p>
+        <!-- Area principale con i controlli -->
+        <main class="content-area">
+            
+            <!-- Pannello: Tutti i LED fissi -->
+            <section id="tutti_fissi" class="control-panel active">
+                <h2><i class="fas fa-palette"></i> Tutti i LED Fissi</h2>
+                <p>Imposta un colore statico per tutta la striscia LED.</p>
+                <div class="control-group">
+                    <label for="colore-tutti">Colore</label>
+                    <input type="color" id="colore-tutti" value="#00ff00">
+                </div>
+                <div class="control-group">
+                    <label for="luminosita-tutti">Luminosità</label>
+                    <input type="range" id="luminosita-tutti" min="0" max="255" value="200">
+                    <span class="value-display" id="valore-luminosita-tutti">200</span>
+                </div>
+                <button class="btn-activate" data-mode="tutti_fissi">Applica</button>
+            </section>
+
+            <!-- Pannello: LED singolo aleatorio -->
+            <section id="aleatorio_singolo" class="control-panel">
+                <h2><i class="fas fa-dice"></i> LED Singolo Aleatorio</h2>
+                <p>Accende un LED alla volta in modo casuale.</p>
+                <div class="control-group">
+                    <label for="colore-aleatorio">Colore</label>
+                    <input type="color" id="colore-aleatorio" value="#0000ff">
+                </div>
+                <div class="control-group">
+                    <label for="luminosita-aleatorio">Luminosità</label>
+                    <input type="range" id="luminosita-aleatorio" min="0" max="255" value="200">
+                    <span class="value-display" id="valore-luminosita-aleatorio">200</span>
+                </div>
+                <div class="control-group">
+                    <label for="durata-aleatorio">Durata Impulso (ms)</label>
+                    <input type="range" id="durata-aleatorio" min="100" max="2000" value="500">
+                    <span class="value-display" id="valore-durata-aleatorio">500</span>
+                </div>
+                <button class="btn-activate" data-mode="aleatorio_singolo">Applica</button>
+            </section>
+
+            <!-- Pannello: Schemi Cromatici -->
+            <section id="schema_cromatico" class="control-panel">
+                <h2><i class="fas fa-rainbow"></i> Schemi Cromatici</h2>
+                <p>Animazioni basate su palette di colori predefinite.</p>
+                <div class="control-group">
+                    <label for="sotto-modalita-schema">Tipo</label>
+                    <select id="sotto-modalita-schema">
+                        <option value="tutti">Tutti i LED</option>
+                        <option value="singolo">LED Singolo</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="schema-colore">Schema</label>
+                    <select id="schema-colore">
+                        <option value="rainbow">Arcobaleno</option>
+                        <option value="fuoco">Fuoco</option>
+                        <option value="oceano">Oceano</option>
+                        <option value="natalizio">Natalizio</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="luminosita-schema">Luminosità</label>
+                    <input type="range" id="luminosita-schema" min="0" max="255" value="200">
+                    <span class="value-display" id="valore-luminosita-schema">200</span>
+                </div>
+                <div class="control-group">
+                    <label for="durata-schema">Durata Ciclo (ms)</label>
+                    <input type="range" id="durata-schema" min="100" max="2000" value="800">
+                    <span class="value-display" id="valore-durata-schema">800</span>
+                </div>
+                <button class="btn-activate" data-mode="schema_cromatico">Applica</button>
+            </section>
+
+            <!-- Pannello: LED singolo aleatorio con fade -->
+            <section id="aleatorio_singolo_fade" class="control-panel">
+                <h2><i class="fas fa-adjust"></i> LED Singolo con Fade</h2>
+                <p>Accende un LED alla volta con un effetto dissolvenza (fade in/out).</p>
+                <div class="control-group">
+                    <label for="colore-fade">Colore</label>
+                    <input type="color" id="colore-fade" value="#ff00ff">
+                </div>
+                <div class="control-group">
+                    <label for="max-luminosita-fade">Max Luminosità</label>
+                    <input type="range" id="max-luminosita-fade" min="0" max="255" value="200">
+                    <span class="value-display" id="valore-max-luminosita-fade">200</span>
+                </div>
+                <div class="control-group">
+                    <label for="durata-fade">Durata Fade (ms)</label>
+                    <input type="range" id="durata-fade" min="200" max="3000" value="1000">
+                    <span class="value-display" id="valore-durata-fade">1000</span>
+                </div>
+                <button class="btn-activate" data-mode="aleatorio_singolo_fade">Applica</button>
+            </section>
+
+            <!-- Pannello: Impostazioni -->
+            <section id="impostazioni" class="control-panel">
+                <h2><i class="fas fa-cog"></i> Impostazioni</h2>
+                
+                <div class="settings-section">
+                    <h3>Aspetto</h3>
+                    <div class="control-group">
+                        <label for="theme-toggle">Tema</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="theme-toggle" class="toggle-input">
+                            <label for="theme-toggle" class="toggle-label"></label>
+                            <span class="toggle-text">Scuro</span>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Colore Primario</label>
+                        <div class="color-picker">
+                            <button class="color-swatch active" data-color="#00aaff" style="background-color: #00aaff;"></button>
+                            <button class="color-swatch" data-color="#ff6b6b" style="background-color: #ff6b6b;"></button>
+                            <button class="color-swatch" data-color="#ff820e" style="background-color: #ff820e;"></button>
+                            <button class="color-swatch" data-color="#4ecdc4" style="background-color: #4ecdc4;"></button>
+                            <button class="color-swatch" data-color="#f7b731" style="background-color: #f7b731;"></button>
+                            <button class="color-swatch" data-color="#5f27cd" style="background-color: #5f27cd;"></button>
+                            <button class="color-swatch" data-color="#00d2d3" style="background-color: #00d2d3;"></button>
+                            <button class="color-swatch" data-color="#a55eea" style="background-color: #a55eea;"></button>
+                            <button class="color-swatch" data-color="#26de81" style="background-color: #26de81;"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Hardware</h3>
+                    <p class="warning">Attenzione: la modifica di queste impostazioni richiede il riavvio del server Flask.</p>
+                    <div class="control-group">
+                        <label for="setting-led-count">Numero di LED</label>
+                        <input type="number" id="setting-led-count" min="1" max="500">
+                    </div>
+                    <div class="control-group">
+                        <label for="setting-led-pin">Pin GPIO (BCM)</label>
+                        <input type="number" id="setting-led-pin" min="1" max="27">
+                    </div>
+                    <button id="btn-save-hw-settings" class="btn-activate">Salva Impostazioni Hardware</button>
+                </div>
+            </section>
+
+        </main>
     </div>
 
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

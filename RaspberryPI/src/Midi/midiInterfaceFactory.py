@@ -19,6 +19,10 @@ class MidiInterfaceFactory():
         USB = auto()
         LAN = auto()
 
+    class socketProtocol(Enum):
+        UDP = auto()
+        TCP = auto()
+
     @staticmethod
     def getAvailable_USB_Ports():
         midiin = rtmidi.MidiIn()
@@ -94,39 +98,67 @@ class MidiInterfaceFactory():
 
     @staticmethod
     def __lan_read_function(self: MidiInterface, ip_address: str, udp_port: int) -> None:
-        pass
+        self._sock = None
+
+        try:
+            # --- Setup Socket UDP ---
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self._sock.bind((self.host, self.udp_port))
+            self._sock.settimeout(0.1) # Timeout per non bloccare il loop
+            logging.info(f"[MidiServer] In ascolto su {self.host}:{self.udp_port}")
+
+            while self._running.is_set():
+                try:
+                    data, addr = self._sock.recvfrom(1024)
+                    logging.debug(f"[MidiServer] Ricevuto {data} da {addr}")
+                    self._midiout.send_message(data)
+                except socket.timeout:
+                    pass # Nessun dato in arrivo, continua
+                except Exception as e:
+                    logging.error(f"[MidiServer] Errore nella ricezione UDP: {e}")
+        finally:
+            if self._sock is not None:
+                self._sock.close()
+        
 
     def __lan_write_function(self: MidiInterface, ip_address: str, udp_port: int) -> None:
-        # --- Setup Socket UDP ---
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self._sock.bind((self.host, self.udp_port))
-        self._sock.settimeout(0.1) # Timeout per non bloccare il loop
-        logging.info(f"[MidiServer] In ascolto su {self.host}:{self.udp_port}")
+        
+        self._sock = None
 
-        while self._running.is_set():
-            try:
-                if not self._inputQueue.empty():
-                    msg = self._inputQueue.get()
-                else:
-                    time.sleep(0.005)
-                    continue
+        try:
+            # --- Setup Socket UDP ---
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self._sock.bind((self.host, self.udp_port))
+            self._sock.settimeout(0.1) # Timeout per non bloccare il loop
+            logging.info(f"[MidiServer] In ascolto su {self.host}:{self.udp_port}")
 
-                while msg is not None:
-                    try:
-                        midi_bytes = bytes(msg)
-                        self._sock.sendto(midi_bytes, (self._broadcast_address, self.udp_port))
-                        logging.debug(f"[MidiServer] Inviato in broadcast su {self.udp_port}")
-                                
-                    except Exception as e:
-                        logging.error(f"[MidiServer] Errore nell'invio UDP: {e}")
-  
-                    msg = self._inputQueue.get()
+            while self._running.is_set():
+                try:
+                    if not self._inputQueue.empty():
+                        msg = self._inputQueue.get()
+                    else:
+                        time.sleep(0.005)
+                        continue
 
-            except Exception as e:
-                logging.error(f"Error in LAN write function of {self._worker_name}: {e}")
+                    while msg is not None:
+                        try:
+                            midi_bytes = bytes(msg)
+                            self._sock.sendto(midi_bytes, (self._broadcast_address, self.udp_port))
+                            logging.debug(f"[MidiServer] Inviato in broadcast su {self.udp_port}")
+                                    
+                        except Exception as e:
+                            logging.error(f"[MidiServer] Errore nell'invio UDP: {e}")
+    
+                        msg = self._inputQueue.get()
 
-     
+                except Exception as e:
+                    logging.error(f"Error in LAN write function of {self._worker_name}: {e}")
+        finally:
+            if self._sock is not None:
+                self._sock.close()
+        
 
 
     @staticmethod
@@ -135,9 +167,9 @@ class MidiInterfaceFactory():
         mode: MidiInterface.Mode,
         connection_type: MidiInterface.ConnectionType,
         interface_name: Optional[str] = None,
-          sendMidiDataEvent: Optional[Event] = None,
+        sendMidiDataEvent: Optional[Event] = None,
         reciveMidiDataEvent: Optional[Event] = None,
-
+        
         usb_port_idx: int = None,
         ip_address: Optional[str] = None,
         udp_port: Optional[int] = None
@@ -159,3 +191,5 @@ class MidiInterfaceFactory():
         elif connection_type == MidiInterface.ConnectionType.LAN and mode == MidiInterface.Mode.WRITE:
             interface._setLoopFunctions(lambda self: MidiInterfaceFactory.__lan_write_function(self, ip_address, udp_port))
             interface._setEventHandleFunction(lambda self, event: MidiInterfaceFactory.__handle_event_function(self, event))
+
+        return interface

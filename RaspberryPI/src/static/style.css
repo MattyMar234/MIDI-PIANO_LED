@@ -1,0 +1,368 @@
+/* --- Variabili CSS per un tema coerente --- */
+:root {
+    --bg-primary: #1a1d23;
+    --bg-secondary: #22262e;
+    --bg-sidebar: #252830;
+    --accent-color: #00aaff;
+    --accent-hover: #0088dd;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --border-color: #3a3d45;
+    --shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    --transition-speed: 0.3s;
+}
+
+/* --- Stili Generali --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden; /* Previene scrollbars orizzontali/verticali indesiderate */
+}
+
+/* --- Layout Principale --- */
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* --- Sidebar --- */
+.sidebar {
+    width: 260px;
+    background-color: var(--bg-sidebar);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+}
+
+.sidebar-header h1 {
+    padding: 20px;
+    font-size: 1.5rem;
+    color: var(--accent-color);
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h1 i {
+    margin-right: 10px;
+}
+
+.sidebar-nav {
+    flex-grow: 1;
+    padding: 20px 0;
+}
+
+.nav-button {
+    width: 100%;
+    padding: 15px 25px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    text-align: left;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    display: flex;
+    align-items: center;
+    border-left: 3px solid transparent;
+}
+
+.nav-button i {
+    width: 24px;
+    margin-right: 15px;
+    font-size: 1.2rem;
+}
+
+.nav-button:hover {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.nav-button.active {
+    background-color: var(--bg-secondary);
+    color: var(--accent-color);
+    border-left-color: var(--accent-color);
+}
+
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.power-off-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #c0392b;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color var(--transition-speed) ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.power-off-btn i {
+    margin-right: 10px;
+}
+
+.power-off-btn:hover {
+    background-color: #e74c3c;
+}
+
+/* --- Area Contenuti --- */
+.content-area {
+    flex-grow: 1;
+    padding: 40px;
+    overflow-y: auto; /* Permette lo scroll se il contenuto è troppo alto */
+}
+
+.control-panel {
+    display: none; /* Nascosto di default */
+    background-color: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    animation: fadeIn 0.5s ease;
+}
+
+.control-panel.active {
+    display: block; /* Mostra solo il pannello attivo */
+}
+
+.control-panel h2 {
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    font-size: 1.8rem;
+}
+
+.control-panel h2 i {
+    margin-right: 15px;
+    color: var(--accent-color);
+}
+
+.control-panel p {
+    margin-bottom: 30px;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+.control-group {
+    margin-bottom: 25px;
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    gap: 20px;
+}
+
+.control-group label {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.control-group input[type="color"] {
+    width: 80px;
+    height: 40px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.control-group select {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.control-group .value-display {
+    font-weight: bold;
+    color: var(--accent-color);
+    font-size: 1.1rem;
+}
+
+/* Stile per gli slider (range input) */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: var(--bg-primary);
+    border-radius: 5px;
+    outline: none;
+    transition: background var(--transition-speed);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background var(--transition-speed);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background var(--transition-speed);
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+    background: var(--accent-hover);
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+    background: var(--accent-hover);
+}
+
+.btn-activate {
+    padding: 12px 30px;
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    box-shadow: 0 2px 5px rgba(0, 170, 255, 0.3);
+}
+
+.btn-activate:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 170, 255, 0.4);
+}
+
+/* Animazione di comparsa */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Variabili per il Tema Chiaro --- */
+.light-theme {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-sidebar: #e4e6eb;
+    --accent-color: var(--accent-color, #00aaff); /* Mantiene il colore personalizzato */
+    --text-primary: #1c1e21;
+    --text-secondary: #606770;
+    --border-color: #dddfe2;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Stile per la Sezione Impostazioni --- */
+.settings-section {
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.settings-section h3 {
+    margin-bottom: 20px;
+    color: var(--accent-color);
+}
+
+.warning {
+    background-color: #f39c12;
+    color: #fff;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+/* Stile per lo switch del tema */
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.toggle-input {
+    display: none;
+}
+
+.toggle-label {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background-color: #ccc;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.toggle-label::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.toggle-input:checked + .toggle-label {
+    background-color: var(--accent-color);
+}
+
+.toggle-input:checked + .toggle-label::after {
+    transform: translateX(30px);
+}
+
+.toggle-text {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+/* Stile per il selettore di colore */
+.color-picker {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+}
+
+.color-swatch.active {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px var(--text-primary);
+}

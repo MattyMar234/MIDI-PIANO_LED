@@ -53,7 +53,10 @@ class WebServer(EventLineInterface):
             if folderName in dirnames:
                 return os.path.join(dirpath, folderName)
         raise FileNotFoundError(f"Cartella {folderName} non trovata sotto " + starting)
-        
+
+    def handleEvent(self, event):
+        pass
+
     def start(self) -> None:
         self.server_thread = threading.Thread(target=self._run_server, daemon=True)
         self.server_thread.start()
@@ -163,11 +166,11 @@ class WebServer(EventLineInterface):
 
 if __name__ == '__main__':
     
-    line = EventLine()
+    #line = EventLine()
     
     print("Starting server...")
     server = WebServer('0.0.0.0', 5001)
-    server.OutputLine = line
+    #server.OutputLine = line
     server.start()
     print("server started")
     # time.sleep(5)
