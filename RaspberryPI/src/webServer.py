@@ -86,8 +86,8 @@ class WebServer(EventLineInterface):
             elif modalita == 'tutti_fissi':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF,
-                    PianoLED.Setting.COLOR: data.get('colore'), 
-                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.AnimationParametre.COLOR: data.get('colore'), 
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
                 }, self.__ControlsEvent)
                 
                 self.notifyEvent(msg, as_thread = True)
@@ -95,9 +95,9 @@ class WebServer(EventLineInterface):
             elif modalita == 'aleatorio_singolo':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.ON_PRESS,
-                    PianoLED.Setting.COLOR: data.get('colore'), 
-                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
-                    PianoLED.Setting.DELAY: data.get('durata'),
+                    PianoLED.AnimationParametre.COLOR: data.get('colore'), 
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.AnimationParametre.DELAY: data.get('durata'),
                 }, self.__ControlsEvent)
                 
                 self.notifyEvent(msg, as_thread = True)
@@ -105,9 +105,9 @@ class WebServer(EventLineInterface):
             elif modalita == 'aleatorio_singolo':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.RANDOM_COLOR,
-                    PianoLED.Setting.COLOR: data.get('colore'), 
-                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
-                    PianoLED.Setting.DELAY: data.get('durata'), 
+                    PianoLED.AnimationParametre.COLOR: data.get('colore'), 
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.AnimationParametre.DELAY: data.get('durata'), 
                 }, self.__ControlsEvent)
                 
                 self.notifyEvent(msg, as_thread = True)
@@ -116,10 +116,10 @@ class WebServer(EventLineInterface):
             elif modalita == 'schema_cromatico':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.CROMATIC,
-                    PianoLED.Setting.BRIGHTNESS: data.get('luminosita'), 
-                    PianoLED.Setting.DELAY: data.get('durata'), 
-                    PianoLED.Setting.MODALITY: data.get('sotto_modalita'), 
-                    PianoLED.Setting.SCHEME: data.get('schema'), 
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
+                    PianoLED.AnimationParametre.DELAY: data.get('durata'), 
+                    PianoLED.AnimationParametre.MODALITY: data.get('sotto_modalita'), 
+                    PianoLED.AnimationParametre.SCHEME: data.get('schema'), 
                 }, self.__ControlsEvent)
                 
                 self.notifyEvent(msg, as_thread = True)
@@ -134,6 +134,7 @@ class WebServer(EventLineInterface):
             return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
 
         except Exception as e:
+            print(e)
             return jsonify({"status": "error", "message": str(e)}), 500
       
         

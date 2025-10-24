@@ -99,6 +99,7 @@ async def main() -> None:
     #se sevo comunicare un dato midi cosa utilizzo
     piano.setMidiDataEvent(MidiDataEvent)
     piano.setAnimantionEvent(AnimationChangeEvent)
+    piano.setSettingChangeEvent(SettingChangeEvent)
     
     #avvio il processo
     piano.start()
