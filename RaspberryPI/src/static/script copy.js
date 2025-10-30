@@ -8,23 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');
     const themeText = document.querySelector('.toggle-text');
     const colorSwatches = document.querySelectorAll('.color-swatch');
-    const btnSavePiano = document.getElementById('btn-save-piano-settings');
-    const btnSavePedal = document.getElementById('btn-save-pedal-settings');
-    
-    // Elementi per le impostazioni del piano
-    const inputTranspose = document.getElementById('setting-transpose');
-    const inputNoteOffset = document.getElementById('setting-noteoffset');
-    const inputPianoWhiteNoteSize = document.getElementById('setting-piano-white-note-size');
-    const inputPianoBlackNoteSize = document.getElementById('setting-piano-black-note-size');
-    const inputLedSize = document.getElementById('setting-led-size');
-    const inputLedNumber = document.getElementById('setting-led-number');
-    const inputMaxBrightness = document.getElementById('setting-max-brightness');
+    const btnSaveHw = document.getElementById('btn-save-hw-settings');
+    const inputLedCount = document.getElementById('setting-led-count');
     const inputLedPin = document.getElementById('setting-led-pin');
-    
-    // Elementi per le impostazioni dei pedali
-    const inputPedalMode = document.getElementById('setting-pedal-mode');
-    const inputPedalAnimation = document.getElementById('setting-pedal-animation');
-    const inputPedalColor = document.getElementById('setting-pedal-color');
 
     // --- Funzione per inviare comandi al backend ---
     async function sendCommand(payload) {
@@ -62,14 +48,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSpegni.addEventListener('click', () => sendCommand({ modalita: 'spegni' }));
 
     activateButtons.forEach(button => {
-        if (button.id === 'btn-save-piano-settings' || 
-            button.id === 'btn-save-pedal-settings') return; // Esclude i bottoni di salvataggio
-        
+        if (button.id === 'btn-save-hw-settings') return; // Esclude il bottone di salvataggio HW
         button.addEventListener('click', (e) => {
             const panel = e.target.closest('.control-panel');
             const mode = panel.id;
             let payload = { modalita: mode };
-            
             if (mode === 'tutti_fissi') {
                 payload.colore = panel.querySelector('#colore-tutti').value;
                 payload.luminosita = parseInt(panel.querySelector('#luminosita-tutti').value);
@@ -80,18 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (mode === 'schema_cromatico') {
                 payload.sotto_modalita = panel.querySelector('#sotto-modalita-schema').value;
                 payload.schema = panel.querySelector('#schema-colore').value;
-                payload.animato = panel.querySelector('#animazione-schema').checked;
-                payload.offset = parseInt(panel.querySelector('#offset-schema').value);
                 payload.luminosita = parseInt(panel.querySelector('#luminosita-schema').value);
                 payload.durata = parseInt(panel.querySelector('#durata-schema').value);
-            } else if (mode === 'schema_cromatico_fade') {
-                payload.sotto_modalita = panel.querySelector('#sotto-modalita-schema-fade').value;
-                payload.schema = panel.querySelector('#schema-colore-fade').value;
-                payload.animato = panel.querySelector('#animazione-schema-fade').checked;
-                payload.offset = parseInt(panel.querySelector('#offset-schema-fade').value);
-                payload.max_luminosita = parseInt(panel.querySelector('#max-luminosita-schema-fade').value);
-                payload.durata_fade = parseInt(panel.querySelector('#durata-fade-schema').value);
-                payload.durata_ciclo = parseInt(panel.querySelector('#durata-ciclo-schema-fade').value);
             } else if (mode === 'aleatorio_singolo_fade') {
                 payload.colore = panel.querySelector('#colore-fade').value;
                 payload.max_luminosita = parseInt(panel.querySelector('#max-luminosita-fade').value);
@@ -109,20 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/settings');
             const serverSettings = await response.json();
 
-            // Popola i campi del piano
-            inputTranspose.value = serverSettings.piano.transpose || 0;
-            inputNoteOffset.value = serverSettings.piano.noteoffset || 21;
-            inputPianoWhiteNoteSize.value = serverSettings.piano.piano_white_note_size || 2.4;
-            inputPianoBlackNoteSize.value = serverSettings.piano.piano_black_note_size || 1.0;
-            inputLedSize.value = serverSettings.piano.led_size || 1.2;
-            inputLedNumber.value = serverSettings.piano.led_number || 78;
-            inputMaxBrightness.value = serverSettings.piano.max_brightness || 100;
-            inputLedPin.value = serverSettings.piano.led_pin || 18;
-            
-            // Popola i campi dei pedali
-            inputPedalMode.value = serverSettings.pedals.mode || 'animazioni_colori';
-            inputPedalAnimation.value = serverSettings.pedals.animation_gpio || '';
-            inputPedalColor.value = serverSettings.pedals.color_gpio || '';
+            // Popola i campi hardware
+            inputLedCount.value = serverSettings.hardware.led_count;
+            inputLedPin.value = serverSettings.hardware.led_pin;
 
             // Applica le impostazioni frontend di default dal server
             applyTheme(serverSettings.frontend.default_theme);
@@ -160,17 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Salva le impostazioni del piano
-    async function savePianoSettings() {
-        const newPianoSettings = {
-            piano: {
-                transpose: parseInt(inputTranspose.value),
-                noteoffset: parseInt(inputNoteOffset.value),
-                piano_white_note_size: parseFloat(inputPianoWhiteNoteSize.value),
-                piano_black_note_size: parseFloat(inputPianoBlackNoteSize.value),
-                led_size: parseFloat(inputLedSize.value),
-                led_number: parseInt(inputLedNumber.value),
-                max_brightness: parseInt(inputMaxBrightness.value),
+    // Salva le impostazioni hardware
+    async function saveHardwareSettings() {
+        const newHwSettings = {
+            hardware: {
+                led_count: parseInt(inputLedCount.value),
                 led_pin: parseInt(inputLedPin.value)
             }
         };
@@ -178,38 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newPianoSettings),
+                body: JSON.stringify(newHwSettings),
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message);
             alert(result.message);
         } catch (error) {
             console.error('Errore:', error);
-            alert('Impossibile salvare le impostazioni del piano: ' + error.message);
-        }
-    }
-    
-    // Salva le impostazioni dei pedali
-    async function savePedalSettings() {
-        const newPedalSettings = {
-            pedals: {
-                mode: inputPedalMode.value,
-                animation_gpio: parseInt(inputPedalAnimation.value) || null,
-                color_gpio: parseInt(inputPedalColor.value) || null
-            }
-        };
-        try {
-            const response = await fetch('/api/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newPedalSettings),
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message);
-            alert(result.message);
-        } catch (error) {
-            console.error('Errore:', error);
-            alert('Impossibile salvare le impostazioni dei pedali: ' + error.message);
+            alert('Impossibile salvare le impostazioni: ' + error.message);
         }
     }
 
@@ -228,42 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Aggiorna il testo dell'interruttore per l'animazione
-    document.querySelectorAll('.toggle-input').forEach(toggle => {
-        toggle.addEventListener('change', (e) => {
-            const toggleText = e.target.nextElementSibling.nextElementSibling;
-            if (toggleText && toggleText.classList.contains('toggle-text')) {
-                toggleText.textContent = e.target.checked ? 'Animato' : 'Fisso';
-            }
-        });
-    });
-
-    // Funzionalità per i pulsanti di incremento/decremento
-    document.querySelectorAll('.btn-increment, .btn-decrement').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const targetId = e.target.dataset.target;
-            const step = parseFloat(e.target.dataset.step);
-            const input = document.getElementById(targetId);
-            
-            if (input) {
-                const currentValue = parseFloat(input.value);
-                const min = parseFloat(input.min);
-                const max = parseFloat(input.max);
-                let newValue;
-                
-                if (e.target.classList.contains('btn-increment')) {
-                    newValue = Math.min(currentValue + step, max);
-                } else {
-                    newValue = Math.max(currentValue - step, min);
-                }
-                
-                input.value = newValue;
-            }
-        });
-    });
-
-    btnSavePiano.addEventListener('click', savePianoSettings);
-    btnSavePedal.addEventListener('click', savePedalSettings);
+    btnSaveHw.addEventListener('click', saveHardwareSettings);
 
     // Aggiorna i valori numerici accanto agli slider
     const sliders = document.querySelectorAll('input[type="range"]');

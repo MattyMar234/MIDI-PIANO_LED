@@ -8,8 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');
     const themeText = document.querySelector('.toggle-text');
     const colorSwatches = document.querySelectorAll('.color-swatch');
+    const btnSaveHw = document.getElementById('btn-save-hw-settings');
     const btnSavePiano = document.getElementById('btn-save-piano-settings');
     const btnSavePedal = document.getElementById('btn-save-pedal-settings');
+    const inputLedCount = document.getElementById('setting-led-count');
+    const inputLedPin = document.getElementById('setting-led-pin');
     
     // Elementi per le impostazioni del piano
     const inputTranspose = document.getElementById('setting-transpose');
@@ -19,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputLedSize = document.getElementById('setting-led-size');
     const inputLedNumber = document.getElementById('setting-led-number');
     const inputMaxBrightness = document.getElementById('setting-max-brightness');
-    const inputLedPin = document.getElementById('setting-led-pin');
     
     // Elementi per le impostazioni dei pedali
     const inputPedalMode = document.getElementById('setting-pedal-mode');
@@ -62,7 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSpegni.addEventListener('click', () => sendCommand({ modalita: 'spegni' }));
 
     activateButtons.forEach(button => {
-        if (button.id === 'btn-save-piano-settings' || 
+        if (button.id === 'btn-save-hw-settings' || 
+            button.id === 'btn-save-piano-settings' || 
             button.id === 'btn-save-pedal-settings') return; // Esclude i bottoni di salvataggio
         
         button.addEventListener('click', (e) => {
@@ -109,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/settings');
             const serverSettings = await response.json();
 
+            // Popola i campi hardware
+            inputLedCount.value = serverSettings.hardware.led_count;
+            inputLedPin.value = serverSettings.hardware.led_pin;
+            
             // Popola i campi del piano
             inputTranspose.value = serverSettings.piano.transpose || 0;
             inputNoteOffset.value = serverSettings.piano.noteoffset || 21;
@@ -117,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inputLedSize.value = serverSettings.piano.led_size || 1.2;
             inputLedNumber.value = serverSettings.piano.led_number || 78;
             inputMaxBrightness.value = serverSettings.piano.max_brightness || 100;
-            inputLedPin.value = serverSettings.piano.led_pin || 18;
             
             // Popola i campi dei pedali
             inputPedalMode.value = serverSettings.pedals.mode || 'animazioni_colori';
@@ -160,6 +166,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Salva le impostazioni hardware
+    async function saveHardwareSettings() {
+        const newHwSettings = {
+            hardware: {
+                led_count: parseInt(inputLedCount.value),
+                led_pin: parseInt(inputLedPin.value)
+            }
+        };
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newHwSettings),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            alert(result.message);
+        } catch (error) {
+            console.error('Errore:', error);
+            alert('Impossibile salvare le impostazioni hardware: ' + error.message);
+        }
+    }
+    
     // Salva le impostazioni del piano
     async function savePianoSettings() {
         const newPianoSettings = {
@@ -170,8 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 piano_black_note_size: parseFloat(inputPianoBlackNoteSize.value),
                 led_size: parseFloat(inputLedSize.value),
                 led_number: parseInt(inputLedNumber.value),
-                max_brightness: parseInt(inputMaxBrightness.value),
-                led_pin: parseInt(inputLedPin.value)
+                max_brightness: parseInt(inputMaxBrightness.value)
             }
         };
         try {
@@ -194,8 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPedalSettings = {
             pedals: {
                 mode: inputPedalMode.value,
-                animation_gpio: parseInt(inputPedalAnimation.value) || null,
-                color_gpio: parseInt(inputPedalColor.value) || null
+                animation_gpio: parseInt(inputPedalAnimation.value),
+                color_gpio: parseInt(inputPedalColor.value)
             }
         };
         try {
@@ -238,30 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Funzionalità per i pulsanti di incremento/decremento
-    document.querySelectorAll('.btn-increment, .btn-decrement').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const targetId = e.target.dataset.target;
-            const step = parseFloat(e.target.dataset.step);
-            const input = document.getElementById(targetId);
-            
-            if (input) {
-                const currentValue = parseFloat(input.value);
-                const min = parseFloat(input.min);
-                const max = parseFloat(input.max);
-                let newValue;
-                
-                if (e.target.classList.contains('btn-increment')) {
-                    newValue = Math.min(currentValue + step, max);
-                } else {
-                    newValue = Math.max(currentValue - step, min);
-                }
-                
-                input.value = newValue;
-            }
-        });
-    });
-
+    btnSaveHw.addEventListener('click', saveHardwareSettings);
     btnSavePiano.addEventListener('click', savePianoSettings);
     btnSavePedal.addEventListener('click', savePedalSettings);
 

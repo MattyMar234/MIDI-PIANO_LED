@@ -1,12 +1,23 @@
 import globalData
-import board
-import neopixel
+
+try:    
+    import board
+except:
+    print("Libreria board diposnibile")
+    board = None
+
+try:    
+    import neopixel
+except:
+    print("Libreria neopixel diposnibile")
+    neopixel = None
+    
+
 from typing import Any, Dict, Final, List, Optional, Tuple, Union
 import threading
 import time
 from enum import Enum, auto
 import logging
-import multiprocessing
 
 from EventLine.eventLineInterface import EventLineInterface
 from EventLine.eventLine import Event, LineObserver, EventData

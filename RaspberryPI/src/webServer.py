@@ -81,8 +81,6 @@ class WebServer(EventLineInterface):
                     PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF
                 }, self.__ControlsEvent)
                 
-                self.notifyEvent(msg, as_thread = True)
-            
             elif modalita == 'tutti_fissi':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF,
@@ -90,8 +88,6 @@ class WebServer(EventLineInterface):
                     PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
                 }, self.__ControlsEvent)
                 
-                self.notifyEvent(msg, as_thread = True)
-            
             elif modalita == 'aleatorio_singolo':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.ON_PRESS,
@@ -100,8 +96,6 @@ class WebServer(EventLineInterface):
                     PianoLED.AnimationParametre.DELAY: data.get('durata'),
                 }, self.__ControlsEvent)
                 
-                self.notifyEvent(msg, as_thread = True)
-               
             elif modalita == 'aleatorio_singolo':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.RANDOM_COLOR,
@@ -109,9 +103,6 @@ class WebServer(EventLineInterface):
                     PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
                     PianoLED.AnimationParametre.DELAY: data.get('durata'), 
                 }, self.__ControlsEvent)
-                
-                self.notifyEvent(msg, as_thread = True)
-            
                 
             elif modalita == 'schema_cromatico':
                 msg = EventData({
@@ -122,8 +113,6 @@ class WebServer(EventLineInterface):
                     PianoLED.AnimationParametre.SCHEME: data.get('schema'), 
                 }, self.__ControlsEvent)
                 
-                self.notifyEvent(msg, as_thread = True)
-                
             elif modalita == 'aleatorio_singolo_fade':
                 #led_controller.avvia_aleatorio_singolo_fade(data.get('colore'), data.get('max_luminosita'), data.get('durata_fade'))
                 logging.warning("aleatorio_singolo_fade non implementato")
@@ -131,6 +120,9 @@ class WebServer(EventLineInterface):
             else:
                 return jsonify({"status": "error", "message": f"Modalità '{modalita}' non riconosciuta"}), 400
 
+
+            print(msg)
+            self.notifyEvent(msg, as_thread = True)
             return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
 
         except Exception as e:
