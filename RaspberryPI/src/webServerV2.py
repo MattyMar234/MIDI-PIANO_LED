@@ -40,7 +40,9 @@ class WebServer(EventLineInterface):
         self._app = Flask(__name__)
         self._app.route('/')(self.index)
         self._app.route('/api/control', methods=['POST'])(self.__updateControls)
-        self._app.route('/api/settings', methods=['POST'])(self.__updateGetSettings)
+        self._app.route('/api/settings', methods=['GET', 'POST'])(self.__updateGetSettings)
+        self._app.route('/api/piano_settings', methods=['POST'])(self.__updatePianoSettings)
+        self._app.route('/api/pedal_settings', methods=['POST'])(self.__updatePedalSettings)
         
     
     def setSettingChangeEventType(self, event: Optional[Event]) -> None:
@@ -83,7 +85,7 @@ class WebServer(EventLineInterface):
                 
             elif modalita == 'tutti_fissi':
                 msg = EventData({
-                    PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.OFF,
+                    PianoLED.ANIMATION_PARAMETRE_NAME : PianoLED.Animation.SOLID_COLOR,
                     PianoLED.AnimationParametre.COLOR: data.get('colore'), 
                     PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
                 }, self.__ControlsEvent)
@@ -96,33 +98,42 @@ class WebServer(EventLineInterface):
                     PianoLED.AnimationParametre.DELAY: data.get('durata'),
                 }, self.__ControlsEvent)
                 
-            elif modalita == 'aleatorio_singolo':
-                msg = EventData({
-                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.RANDOM_COLOR,
-                    PianoLED.AnimationParametre.COLOR: data.get('colore'), 
-                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
-                    PianoLED.AnimationParametre.DELAY: data.get('durata'), 
-                }, self.__ControlsEvent)
-                
             elif modalita == 'schema_cromatico':
                 msg = EventData({
                     PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.CROMATIC,
                     PianoLED.AnimationParametre.BRIGHTNESS: data.get('luminosita'), 
                     PianoLED.AnimationParametre.DELAY: data.get('durata'), 
                     PianoLED.AnimationParametre.MODALITY: data.get('sotto_modalita'), 
-                    PianoLED.AnimationParametre.SCHEME: data.get('schema'), 
+                    PianoLED.AnimationParametre.SCHEME: data.get('schema'),
+                    PianoLED.AnimationParametre.ANIMATED: data.get('animato', True),
+                    PianoLED.AnimationParametre.OFFSET: data.get('offset', 0)
+                }, self.__ControlsEvent)
+                
+            elif modalita == 'schema_cromatico_fade':
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.CROMATIC_FADE,
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('max_luminosita'), 
+                    PianoLED.AnimationParametre.FADE_DURATION: data.get('durata_fade'),
+                    PianoLED.AnimationParametre.DELAY: data.get('durata_ciclo'), 
+                    PianoLED.AnimationParametre.MODALITY: data.get('sotto_modalita'), 
+                    PianoLED.AnimationParametre.SCHEME: data.get('schema'),
+                    PianoLED.AnimationParametre.ANIMATED: data.get('animato', True),
+                    PianoLED.AnimationParametre.OFFSET: data.get('offset', 0)
                 }, self.__ControlsEvent)
                 
             elif modalita == 'aleatorio_singolo_fade':
-                #led_controller.avvia_aleatorio_singolo_fade(data.get('colore'), data.get('max_luminosita'), data.get('durata_fade'))
-                logging.warning("aleatorio_singolo_fade non implementato")
+                msg = EventData({
+                    PianoLED.ANIMATION_PARAMETRE_NAME: PianoLED.Animation.ON_PRESS_FADE,
+                    PianoLED.AnimationParametre.COLOR: data.get('colore'), 
+                    PianoLED.AnimationParametre.BRIGHTNESS: data.get('max_luminosita'), 
+                    PianoLED.AnimationParametre.FADE_DURATION: data.get('durata_fade'),
+                }, self.__ControlsEvent)
             
             else:
                 return jsonify({"status": "error", "message": f"Modalità '{modalita}' non riconosciuta"}), 400
 
-
             print(msg)
-            self.notifyEvent(msg, as_thread = True)
+            self.notifyEvent(msg, as_thread=True)
             return jsonify({"status": "success", "message": f"Modalità '{modalita}' applicata con successo."})
 
         except Exception as e:
@@ -153,17 +164,94 @@ class WebServer(EventLineInterface):
                 "message": "Impostazioni salvate. Riavvia il server per applicare le modifiche hardware."
             })
 
+    def __updatePianoSettings(self) -> Response:
+        """Endpoint per aggiornare le impostazioni del piano."""
+        new_settings = request.get_json()
+        if not new_settings or 'piano' not in new_settings:
+            return jsonify({"status": "error", "message": "Nessun dato ricevuto o formato non valido"}), 400
+        
+        try:
+            # Aggiorna la configurazione del piano in memoria
+            if 'piano' not in self._config:
+                self._config['piano'] = {}
+            
+            self._config['piano'].update(new_settings['piano'])
+            
+            # Salva la configurazione su file
+            self.__save_config(self._config)
+            
+            # Invia un evento per notificare il cambiamento delle impostazioni del piano
+            if self.__SettingEvent:
+                msg = EventData({
+                    'type': 'piano_settings',
+                    'settings': self._config['piano']
+                }, self.__SettingEvent)
+                self.notifyEvent(msg, as_thread=True)
+            
+            return jsonify({
+                "status": "success", 
+                "message": "Impostazioni del piano salvate con successo."
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
 
+    def __updatePedalSettings(self) -> Response:
+        """Endpoint per aggiornare le impostazioni dei pedali."""
+        new_settings = request.get_json()
+        if not new_settings or 'pedals' not in new_settings:
+            return jsonify({"status": "error", "message": "Nessun dato ricevuto o formato non valido"}), 400
+        
+        try:
+            # Aggiorna la configurazione dei pedali in memoria
+            if 'pedals' not in self._config:
+                self._config['pedals'] = {}
+            
+            self._config['pedals'].update(new_settings['pedals'])
+            
+            # Salva la configurazione su file
+            self.__save_config(self._config)
+            
+            # Invia un evento per notificare il cambiamento delle impostazioni dei pedali
+            if self.__SettingEvent:
+                msg = EventData({
+                    'type': 'pedal_settings',
+                    'settings': self._config['pedals']
+                }, self.__SettingEvent)
+                self.notifyEvent(msg, as_thread=True)
+            
+            return jsonify({
+                "status": "success", 
+                "message": "Impostazioni dei pedali salvate con successo."
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
 
     def __load_config(self) -> Dict[str, Any]:
         try:
             with open('config.json', 'r') as f:
                 return json.load(f)
-        except FileNotFoundError or json.JSONDecodeError:
+        except (FileNotFoundError, json.JSONDecodeError):
             # Se il file non esiste, ne crea uno con i valori di default
             default_config = {
-                "hardware": {"led_count": 74, "led_pin": 18},
-                "frontend": {"default_theme": "dark", "default_color": "#00aaff"}
+                "piano": {
+                    "transpose": 0,
+                    "noteoffset": 21,
+                    "piano_white_note_size": 2.4,
+                    "piano_black_note_size": 1.0,
+                    "led_size": 1.2,
+                    "led_number": 78,
+                    "max_brightness": 100,
+                    "led_pin": 18
+                },
+                "pedals": {
+                    "mode": "animazioni_colori",
+                    "animation_gpio": None,
+                    "color_gpio": None
+                },
+                "frontend": {
+                    "default_theme": "dark", 
+                    "default_color": "#00aaff"
+                }
             }
             self.__save_config(default_config)
             return default_config
@@ -250,5 +338,3 @@ if __name__ == '__main__':
             pass
     except KeyboardInterrupt:
         print("Stopping")
-
-
